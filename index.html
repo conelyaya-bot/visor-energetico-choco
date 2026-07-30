@@ -67,48 +67,33 @@ html,body{margin:0;height:100%;background:#0d1b2a;overflow:hidden;font-family:Ar
 #projPanel .pj .pmw{color:#ffd54f;font-size:10px}
 .proj-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:4px}
 
-/* Mobile bottom nav */
-#mobNav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:50;background:rgba(9,20,36,.97);border-top:1px solid #26506e;
-  justify-content:space-around;padding:4px 0 env(safe-area-inset-bottom,4px);backdrop-filter:blur(8px)}
-#mobNav .mtab{background:none;border:none;color:#6a8ca8;font-size:9px;padding:2px 4px;cursor:pointer;text-align:center;flex:1;transition:color .15s}
-#mobNav .mtab .mi{font-size:18px;display:block;margin-bottom:1px}
+/* === MOBILE BOTTOM NAV === */
+#mobNav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:150;background:rgba(9,20,36,.97);border-top:1px solid #26506e;
+  justify-content:space-around;padding:4px 0 env(safe-area-inset-bottom,4px);backdrop-filter:blur(8px);height:54px}
+#mobNav .mtab{background:none;border:none;color:#6a8ca8;font-size:9px;padding:2px 2px;cursor:pointer;text-align:center;flex:1;min-width:0}
+#mobNav .mtab .mi{font-size:20px;display:block}
 #mobNav .mtab.on{color:#7fd1ff}
 #mobNav .mtab.on .mi{filter:brightness(1.3)}
-#mobOverlay{display:none;position:fixed;inset:0;z-index:10;background:rgba(0,0,0,.35)}
 
+/* === MOBILE FULL-SCREEN PANEL CONTAINER === */
+#mobPanel{display:none;position:fixed;inset:0;z-index:200;background:rgba(9,20,36,.99);overflow-y:auto;
+  -webkit-overflow-scrolling:touch;padding:10px 12px 60px}
+#mobPanel .mbclose{display:block;position:sticky;top:0;z-index:10;background:rgba(9,20,36,.98);
+  padding:8px 0;margin-bottom:8px;font-size:14px;color:#7fd1ff;cursor:pointer;border:none;text-align:left}
+
+/* === MOBILE MEDIA QUERY === */
 @media(max-width:768px){
   #mobNav{display:flex}
-  #hud h1{font-size:13px}#hud p{font-size:9px}#hud{max-width:180px;top:6px;left:8px}
-  #dash{top:44px;gap:3px}
-  #dash .k{padding:2px 6px;font-size:9px}
-  #dash .k .icon{font-size:13px;width:18px}
-  #dash .k .val{font-size:11px}
-  #dash .k .lab{font-size:7.5px}
-  #panel,#leg,#card,#rank,#projPanel{display:none !important}
-  #panel{position:fixed;top:auto;bottom:56px;left:0;right:0;z-index:30;width:100%;max-height:55vh;
-    border-radius:12px 12px 0 0;border-bottom:none;font-size:12px;padding:10px 12px;overflow-y:auto;
-    box-shadow:0 -4px 20px rgba(0,0,0,.5);display:none !important}
-  #panel .grp button{font-size:11px;padding:3px 8px}
-  #panel select{width:100%}
-  .card{position:fixed;top:auto;bottom:56px;left:0;right:0;z-index:30;min-width:auto;max-width:none;width:100%;
-    max-height:55vh;border-radius:12px 12px 0 0;border-bottom:none;font-size:12px;padding:10px 13px;
-    box-shadow:0 -4px 20px rgba(0,0,0,.5);display:none !important}
-  #leg{position:fixed;top:auto;bottom:56px;left:0;right:0;z-index:30;max-width:none;width:100%;
-    border-radius:12px 12px 0 0;font-size:12px;padding:10px 13px;
-    box-shadow:0 -4px 20px rgba(0,0,0,.5);display:none !important}
-  #rank{position:fixed;top:auto;bottom:56px;left:0;right:0;z-index:30;width:100%;max-height:55vh;
-    border-radius:12px 12px 0 0;border-bottom:none;font-size:12px;padding:10px;
-    box-shadow:0 -4px 20px rgba(0,0,0,.5);display:none !important}
-  #projPanel{position:fixed;top:auto;bottom:56px;left:0;right:0;z-index:30;width:100%;max-width:none;
-    max-height:55vh;border-radius:12px 12px 0 0;border-bottom:none;font-size:11px;padding:10px;
-    box-shadow:0 -4px 20px rgba(0,0,0,.5);display:none !important;overflow-y:auto;white-space:normal}
-  #projPanel .pj{width:100%;display:block;margin:3px 0}
-  .panel-open #panel{display:block !important}
-  .panel-open .card{display:block !important}
-  .panel-open #leg{display:block !important}
-  .panel-open #rank{display:block !important}
-  .panel-open #projPanel{display:block !important}
-  .panel-open #mobOverlay{display:block}
+  #hud{max-width:160px;top:6px;left:6px;z-index:12}
+  #hud h1{font-size:12px;margin:0}
+  #hud p{font-size:8px;margin:0}
+  #dash{top:40px;gap:3px;z-index:11}
+  #dash .k{padding:2px 5px;font-size:8px}
+  #dash .k .icon{font-size:12px;width:16px}
+  #dash .k .val{font-size:10px}
+  #dash .k .lab{font-size:7px}
+  /* Hide desktop panels on mobile */
+  #panel,#card,#leg,#rank,#projPanel{display:none !important}
   canvas{touch-action:pan-x pan-y}
 }
 </style>
@@ -155,7 +140,6 @@ html,body{margin:0;height:100%;background:#0d1b2a;overflow:hidden;font-family:Ar
 <div id="tip"></div>
 <div id="card" class="card"></div>
 <div id="projPanel"></div>
-<div id="mobOverlay"></div>
 <nav id="mobNav">
   <button class="mtab on" data-target="mapa"><span class="mi">🗺️</span>Mapa</button>
   <button class="mtab" data-target="info"><span class="mi">📋</span>Info</button>
@@ -925,24 +909,106 @@ if (hm) {
   showFicha(M.find(x => x.n === 'Quibdó') || M[0]);
 }
 
-// Mobile bottom nav
-const panels = ['panel','card','leg','rank','projPanel'];
+// Mobile full-screen panel
+const mobPanel = document.createElement('div');
+mobPanel.id = 'mobPanel';
+document.body.appendChild(mobPanel);
 const tabs = document.querySelectorAll('#mobNav .mtab');
-const overlay = document.getElementById('mobOverlay');
-function openTab(target) {
-  tabs.forEach(t => t.classList.toggle('on', t.dataset.target === target));
-  document.body.classList.toggle('panel-open', target !== 'mapa');
-  overlay.style.display = (target !== 'mapa') ? 'block' : 'none';
-  if (target === 'info') {
-    document.getElementById('leg').style.display = 'block';
-    document.getElementById('card').style.display = 'block';
-  }
-  if (target === 'ranking') document.getElementById('rank').style.display = 'block';
-  if (target === 'proyectos') document.getElementById('projPanel').style.display = 'block';
-  if (target === 'ajustes') document.getElementById('panel').style.display = 'block';
+
+function mobClose() { mobPanel.style.display = 'none'; tabs.forEach(t => t.classList.toggle('on', t.dataset.target === 'mapa')); }
+
+mobPanel.addEventListener('click', e => { if (e.target === mobPanel) mobClose(); });
+
+// Build project cards HTML for mobile
+function mobProjectHTML() {
+  return PROYECTOS.map(p => '<div class="pj" style="width:100%;display:block;margin:3px 0;background:#173247;border:1px solid #2f6187;border-radius:8px;padding:6px 8px;cursor:pointer">' +
+    '<div class="pname" style="font-weight:bold;color:#7fd1ff;font-size:12px">' + p.nombre + '</div>' +
+    '<div class="ptipo" style="font-size:10px;color:#9fb3c8">' + (TIPO_LABELS[p.tipo] || p.tipo) + ' · ' + p.mun + (p.mun2 ? ' / ' + p.mun2 : '') + '</div>' +
+    '<div class="pmw" style="color:#ffd54f;font-size:11px">' + (p.mw ? p.mw + ' MW' : 'Infraestructura') + ' · $' + p.inv + 'B COP · ' + p.estado + '</div></div>').join('');
 }
-tabs.forEach(t => t.addEventListener('click', () => openTab(t.dataset.target)));
-overlay.addEventListener('click', () => openTab('mapa'));
+
+function mobOpen(target) {
+  tabs.forEach(t => t.classList.toggle('on', t.dataset.target === target));
+  let html = '<button class="mbclose" onclick="mobClose()">← Volver</button>';
+  if (target === 'info') {
+    html += document.getElementById('card').innerHTML;
+    html += '<hr style="border-color:#1d3a52;margin:12px 0">';
+    html += document.getElementById('leg').innerHTML;
+  } else if (target === 'ranking') {
+    // Rebuild ranking into sorted order, no inline onclick
+    let rows = M.slice().sort((a, b) => b._pri - a._pri);
+    html += '<b style="color:#7fd1ff">RANKING sMCDA — 31 municipios</b><table style="width:100%;border-collapse:collapse"><tr><th style="color:#7fd1ff;text-align:left;font-size:10px;position:sticky;top:0;background:#0a1626">#</th><th style="color:#7fd1ff;text-align:left;font-size:10px;position:sticky;top:0;background:#0a1626">Municipio</th><th style="color:#7fd1ff;text-align:left;font-size:10px;position:sticky;top:0;background:#0a1626">Prior.</th><th style="color:#7fd1ff;text-align:left;font-size:10px;position:sticky;top:0;background:#0a1626">MW</th><th style="color:#7fd1ff;text-align:left;font-size:10px;position:sticky;top:0;background:#0a1626">Pob</th></tr>';
+    rows.forEach((f, i) => {
+      html += '<tr style="cursor:pointer;border-bottom:1px solid #1b3348" data-muni="' + f.n + '"><td style="padding:2px 3px">' + (i + 1) + '</td><td style="padding:2px 3px">' + f.n + '</td><td style="padding:2px 3px"><div style="height:7px;border-radius:3px;background:' + priRamp(f._pri) + ';width:' + Math.round(f._pri * 46) + 'px;display:inline-block;vertical-align:middle"></div> ' + Math.round(f._pri * 100) + '</td><td style="padding:2px 3px">' + f.mw + '</td><td style="padding:2px 3px">' + (f.pob / 1000).toFixed(0) + 'k</td></tr>';
+    });
+    html += '</table>';
+  } else if (target === 'proyectos') {
+    html += '<h3 style="color:#7fd1ff;margin:4px 0 8px">🏗️ Proyectos Reales</h3>';
+    html += '<div style="display:flex;flex-direction:column;gap:6px">' + mobProjectHTML() + '</div>';
+  } else if (target === 'ajustes') {
+    html += document.getElementById('panel').innerHTML;
+  }
+  mobPanel.innerHTML = html;
+  
+  // Re-bind events inside mobPanel
+  if (target === 'ajustes') {
+    mobPanel.querySelectorAll('button[data-col]').forEach(b => b.onclick = () => {
+      document.querySelectorAll('#panel button[data-col]').forEach(x => x.classList.remove('on'));
+      b.classList.add('on');
+      colMode = b.dataset.col;
+      applyColor();
+    });
+    mobPanel.querySelectorAll('button[data-h]').forEach(b => b.onclick = () => {
+      document.querySelectorAll('#panel button[data-h]').forEach(x => x.classList.remove('on'));
+      b.classList.add('on');
+      hMode = b.dataset.h;
+      applyHeight();
+    });
+    const wR2 = mobPanel.querySelector('#wR'), wN2 = mobPanel.querySelector('#wN'), wP2 = mobPanel.querySelector('#wP');
+    if (wR2) { wR2.value = wR; wN2.value = wN; wP2.value = wP;
+      [wR2, wN2, wP2].forEach(s => s.oninput = onW); }
+    const rPair = {btnrios:{get:()=>riversWanted,set:v=>{riversWanted=v;updateRivers();}},btnrank:{get:()=>rankDiv.style.display!=='none',set:v=>{rankDiv.style.display=v?'block':'none';if(v)buildRank();}},btnlbl:{get:()=>labelsOn,set:v=>{labelsOn=v;}},btnsit:{get:()=>sitesWanted,set:v=>{sitesWanted=v;updateSites();}},btnproj:{get:()=>projGroup.visible,set:v=>{projGroup.visible=v;}},'btnrot':{get:()=>controls.autoRotate,set:v=>{}},btnsat:{get:()=>satVisible,set:v=>{}}};
+    Object.keys(rPair).forEach(id => {
+      const el = mobPanel.querySelector('#' + id);
+      if (!el) return;
+      el.classList.toggle('on', rPair[id].get());
+      el.onclick = () => { const v = !rPair[id].get(); rPair[id].set(v); el.classList.toggle('on', v); if (id==='btnrot') setRot(v); if (id==='btnsat') document.getElementById('btnsat').click(); };
+    });
+    const sM2 = mobPanel.querySelector('#selMun');
+    if (sM2) { sM2.innerHTML = document.getElementById('selMun').innerHTML; sM2.onchange = () => { document.getElementById('selMun').value = sM2.value; isolate(sM2.value); }; }
+    const bA2 = mobPanel.querySelector('#btnall');
+    if (bA2) bA2.onclick = () => { document.getElementById('selMun').value = ''; isolate(null); };
+    const bPl2 = mobPanel.querySelector('#btnplay');
+    if (bPl2) bPl2.onclick = () => { document.getElementById('btnplay').click(); };
+    const bRs2 = mobPanel.querySelector('#btnrestart');
+    if (bRs2) bRs2.onclick = () => { document.getElementById('btnrestart').click(); };
+    const bVw2 = mobPanel.querySelector('#btnview');
+    if (bVw2) bVw2.onclick = () => document.getElementById('btnview').click();
+    const bSh2 = mobPanel.querySelector('#btnshare');
+    if (bSh2) bSh2.onclick = shareLink;
+    const bCv2 = mobPanel.querySelector('#btncsv');
+    if (bCv2) bCv2.onclick = csvAll;
+  }
+  if (target === 'ranking') {
+    mobPanel.querySelectorAll('tr[data-muni]').forEach(tr => {
+      tr.onclick = () => { const nm = tr.dataset.muni; isolate(nm); showFicha(M.find(x=>x.n===nm)); mobClose(); };
+    });
+  }
+  if (target === 'proyectos') {
+    mobPanel.querySelectorAll('.pj').forEach((el, i) => {
+      el.onclick = () => { focusProject(i + 1); mobClose(); };
+    });
+  }
+  
+  mobPanel.style.display = 'block';
+  mobPanel.scrollTop = 0;
+}
+
+tabs.forEach(t => t.addEventListener('click', () => {
+  const target = t.dataset.target;
+  if (target === 'mapa') { mobClose(); return; }
+  mobOpen(target);
+}));
 
 if (innerWidth < 768) document.getElementById('projPanel').style.display = 'none';
 
@@ -952,12 +1018,7 @@ addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
   const mb = innerWidth < 768;
   document.getElementById('mobNav').style.display = mb ? 'flex' : 'none';
-  document.getElementById('mobOverlay').style.display = 'none';
-  document.body.classList.remove('panel-open');
-  if (!mb) {
-    panels.forEach(id => document.getElementById(id).style.display = '');
-    document.getElementById('projPanel').style.display = 'block';
-  }
+  if (!mb) { mobPanel.style.display = 'none'; }
 });
 
 (function loop() {
