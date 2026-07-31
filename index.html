@@ -53,6 +53,21 @@ html,body{margin:0;height:100%;background:#0d1b2a;overflow:hidden;font-family:Ar
 #rank tr:hover td{background:#12304a}
 #rank .bar{height:7px;border-radius:3px;background:#2ecc71}
 .rios{color:#8fd3ff;font-size:11px;margin-top:4px;line-height:1.3;border-top:1px solid #244;padding-top:3px}
+
+/* Chart + Comparator */
+#chart{position:fixed;top:160px;left:12px;z-index:6;background:rgba(9,20,36,.96);border:1px solid #2a6;border-radius:10px;
+  padding:8px;color:#eef;font-size:11.5px;width:300px;max-height:60vh;overflow-y:auto;display:none;box-shadow:0 6px 24px rgba(0,0,0,.5)}
+#chart .ch-row:hover{background:#12304a}
+#cmpPanel{position:fixed;top:140px;right:12px;z-index:8;background:rgba(9,20,36,.98);border:1px solid #0a84ff;border-radius:10px;
+  padding:10px 13px;color:#eef;font-size:11.5px;width:380px;max-width:94vw;max-height:70vh;overflow-y:auto;display:none;
+  box-shadow:0 6px 24px rgba(0,0,0,.55)}
+#cmpPanel select{width:150px;background:#173247;color:#dff;border:1px solid #2f6187;border-radius:6px;padding:3px;font-size:11px}
+#cmpPanel table{width:100%;border-collapse:collapse;margin-top:6px}
+#cmpPanel td{padding:2px 4px;border-bottom:1px solid #1b3348}
+#cmpPanel td.win{color:#2ecc71;font-weight:bold}
+#cmpPanel td.lose{color:#e57373}
+#cmpPanel td.tie{color:#9fb3c8}
+#panel input[type=text]{width:100%;background:#173247;color:#dff;border:1px solid #2f6187;border-radius:6px;padding:3px;font-size:11px;box-sizing:border-box}
 .card .mini{background:#173247;color:#dff;border:1px solid #2f6187;border-radius:5px;font-size:12px;cursor:pointer;padding:2px 6px;margin-left:2px}
 
 /* Project markers panel */
@@ -93,7 +108,7 @@ html,body{margin:0;height:100%;background:#0d1b2a;overflow:hidden;font-family:Ar
   #dash .k .val{font-size:10px}
   #dash .k .lab{font-size:7px}
   /* Hide desktop panels on mobile */
-  #panel,#card,#leg,#rank,#projPanel{display:none !important}
+  #panel,#card,#leg,#rank,#projPanel,#chart,#cmpPanel{display:none !important}
   canvas{touch-action:pan-x pan-y}
 }
 </style>
@@ -124,7 +139,15 @@ html,body{margin:0;height:100%;background:#0d1b2a;overflow:hidden;font-family:Ar
     <button id="btnsit">📍 Sitios IDEAM</button>
     <button id="btnproj" class="on">🏗️ Proy. Reales</button></div>
   <div class="grp"><b>VER MUNICIPIO</b><br>
+    <input type="text" id="busMun" placeholder="🔍 Buscar municipio…">
     <select id="selMun"></select> <button id="btnall">Todos</button></div>
+  <div class="grp"><b>FILTROS</b><br>
+    <select id="filtClus" title="Filtrar por clúster"><option value="">Clúster: Todos</option><option value="0">Norte / Darién</option><option value="1">Central / Atrato-San Juan</option><option value="2">Sur / San Juan</option><option value="3">Oeste / Baudó</option></select>
+    <select id="filtVoc" title="Filtrar por tecnología"><option value="">Tecnología: Todas</option><option>PCH</option><option>Solar</option><option>PCH + Solar</option></select>
+    <select id="filtProj" title="Filtrar proyectos"><option value="">Proyectos: Todos</option><option value="Hidroeléctrica">💧 Hidro</option><option value="Solar">☀️ Solar</option><option value="Transmisión">⚡ Transmisión</option></select>
+    <button id="btnFiltOff">✖ Limpiar</button></div>
+  <div class="grp"><b>HERRAMIENTAS</b><br>
+    <button id="btnchart">📈 Gráfico</button><button id="btncmp">⚖ Comparar</button></div>
   <div class="grp"><b>RECORRIDO</b><br>
     <button id="btnplay">▶ Recorrer</button><button id="btnrestart">⏮</button></div>
   <div class="grp"><b>VISTA</b><br>
@@ -136,15 +159,28 @@ html,body{margin:0;height:100%;background:#0d1b2a;overflow:hidden;font-family:Ar
     <button id="btncsv">⬇ CSV</button></div>
 </div>
 <div id="rank"></div>
+<div id="chart"></div>
 <div id="leg"></div>
 <div id="tip"></div>
 <div id="card" class="card"></div>
 <div id="projPanel"></div>
+<div id="cmpPanel">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <b style="color:#7fd1ff">⚖️ COMPARADOR DE MUNICIPIOS</b>
+    <button id="cmpClose" style="background:#173247;color:#dff;border:1px solid #2f6187;border-radius:5px;cursor:pointer;font-size:11px">✕</button>
+  </div>
+  <div style="display:flex;gap:6px;margin-top:6px">
+    <select id="cmpA"></select>
+    <select id="cmpB"></select>
+  </div>
+  <div id="cmpOut"></div>
+</div>
 <nav id="mobNav">
   <button class="mtab on" data-target="mapa"><span class="mi">🗺️</span>Mapa</button>
   <button class="mtab" data-target="info"><span class="mi">📋</span>Info</button>
   <button class="mtab" data-target="ranking"><span class="mi">🏆</span>Ranking</button>
   <button class="mtab" data-target="proyectos"><span class="mi">🏗️</span>Proyectos</button>
+  <button class="mtab" data-target="comparar"><span class="mi">⚖️</span>Comparar</button>
   <button class="mtab" data-target="ajustes"><span class="mi">⚙️</span>Ajustes</button>
 </nav>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -179,6 +215,19 @@ const TIPO_LABELS = {
   "Solar": "☀️ Solar",
   "Transmisión": "⚡ Transmisión"
 };
+
+// ============================================
+// CLÚSTERES (K-Means) POR MUNICIPIO
+// ============================================
+const CLUSTERS = {
+  "0": ["Acandí", "Belén de Bajirá", "El Carmen del Darién", "Juradó", "Riosucio", "Unguía"],
+  "1": ["Alto Baudó", "Bahía Solano", "Bajo Baudó", "Bojayá", "Cértegui", "El Cantón del San Pablo", "El Litoral del San Juan", "Istmina", "Lloró", "Medio Atrato", "Nuquí", "Quibdó", "Río Iró", "Río Quito", "Tadó", "Unión Panamericana"],
+  "2": ["Bagadó", "Condoto", "El Carmen de Atrato", "Nóvita", "San José del Palmar", "Sipí"],
+  "3": ["Atrato", "Medio Baudó", "Medio San Juan"]
+};
+const clusterOf = {};
+Object.keys(CLUSTERS).forEach(k => CLUSTERS[k].forEach(m => clusterOf[m] = k));
+const CLUSTER_LABELS = {"0": "Norte / Darién", "1": "Central / Atrato-San Juan", "2": "Sur / San Juan", "3": "Oeste / Baudó"};
 
 // ============================================
 // MAIN
@@ -553,7 +602,7 @@ RIVERS.forEach(rv => {
 PROYECTOS.forEach(p => {
   const sx = (p.lon + 76.7) * 30;
   const sy = (p.lat - 5.5) * 30;
-  labels.push({el: mkLabel(p.nombre, 'p'), pos: new THREE.Vector3(sx, 70, -sy), type: 'p'});
+  labels.push({el: mkLabel(p.nombre, 'p'), pos: new THREE.Vector3(sx, 70, -sy), type: 'p', p: p});
 });
 
 const _pv = new THREE.Vector3();
@@ -569,7 +618,7 @@ function updateLabels() {
       if (!riversWanted) vis = false;
       else if (isoName) { const f = M.find(x => x.n === isoName); vis = (f.ri || '').split('; ').indexOf(l.rv.n) >= 0; }
     } else if (l.type === 'p') {
-      vis = projGroup.visible;
+      vis = projGroup.visible && (!projFilt || l.p.tipo === projFilt);
     }
     if (!vis) { l.el.style.display = 'none'; return; }
     _pv.copy(l.pos).project(camera);
@@ -650,13 +699,116 @@ function buildRank() {
 }
 
 // ============================================
+// RANKING CHART (top 10)
+// ============================================
+function buildChartHTML() {
+  const rows = M.slice().sort((a, b) => b._pri - a._pri).slice(0, 10);
+  const max = rows[0]._pri || 1;
+  let h = '<div style="margin-top:4px">';
+  rows.forEach((f, i) => {
+    const pct = Math.round(f._pri / max * 100);
+    h += '<div class="ch-row" data-muni="' + f.n + '" style="display:flex;align-items:center;gap:6px;margin:3px 0;cursor:pointer">' +
+      '<span style="width:118px;font-size:10.5px;color:#cfe;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (i + 1) + '. ' + f.n + '</span>' +
+      '<div style="flex:1;background:#0a1626;border-radius:3px;height:14px"><div style="width:' + pct + '%;height:100%;border-radius:3px;background:' + priRamp(f._pri) + '"></div></div>' +
+      '<span style="width:34px;text-align:right;font-size:10px;color:#ffd54f">' + Math.round(f._pri * 100) + '</span></div>';
+  });
+  return h + '</div>';
+}
+function bindChartRows(root) {
+  root.querySelectorAll('.ch-row').forEach(r => {
+    r.onclick = () => {
+      const nm = r.dataset.muni;
+      const f = M.find(x => x.n === nm);
+      if (!f) return;
+      isolate(nm);
+      showFicha(f);
+      if (innerWidth < 768) { mobClose(); setTimeout(() => mobOpen('info'), 350); }
+    };
+  });
+}
+const chartDiv = document.getElementById('chart');
+function buildChart() {
+  chartDiv.innerHTML = '<b style="color:#7fd1ff">TOP 10 PRIORIDAD sMCDA</b>' + buildChartHTML();
+  bindChartRows(chartDiv);
+}
+
+// ============================================
+// COMPARADOR DE MUNICIPIOS
+// ============================================
+function cmpHTML(a, b) {
+  const F = [['v', 'Vocación', 0], ['ar', 'Área (km²)', 1], ['pob', 'Población (hab)', 1], ['mw', 'Potencia PCH (MW)', 1], ['mws', 'Potencia Solar (MW)', 1], ['gwh', 'Energía PCH (GWh/año)', 1], ['qm', 'Caudal medio (m³/s)', 1], ['p', 'Precipitación (mm/año)', 1], ['r', 'Radiación (kWh/m²/d)', 1], ['co2', 'CO₂ evitado (kt/año)', 1], ['_pri', 'Prioridad sMCDA', 1]];
+  const gv = (f, k) => k === '_pri' ? Math.round(f[k] * 100) : f[k];
+  const fmt = (v) => typeof v === 'number' ? v.toLocaleString('es-CO') : v;
+  let h = '<table style="width:100%;border-collapse:collapse;font-size:11.5px">' +
+    '<tr><th style="text-align:left;color:#7fd1ff;font-size:10px;padding:3px">Campo</th>' +
+    '<th style="text-align:right;color:#7fd1ff;font-size:10px;padding:3px">' + a.n + '</th>' +
+    '<th style="text-align:right;color:#7fd1ff;font-size:10px;padding:3px">' + b.n + '</th></tr>';
+  F.forEach(([k, lab, hi]) => {
+    const va = gv(a, k), vb = gv(b, k);
+    let ca = 'tie', cb = 'tie';
+    if (hi && typeof va === 'number' && typeof vb === 'number') {
+      if (va > vb) { ca = 'win'; cb = 'lose'; }
+      else if (vb > va) { ca = 'lose'; cb = 'win'; }
+    }
+    h += '<tr><td style="padding:3px">' + lab + '</td>' +
+      '<td class="' + ca + '" style="text-align:right;padding:3px">' + fmt(va) + '</td>' +
+      '<td class="' + cb + '" style="text-align:right;padding:3px">' + fmt(vb) + '</td></tr>';
+  });
+  return h + '</table>';
+}
+
+// ============================================
+// SEARCH (auto-filter select + isolate on exact match)
+// ============================================
+function rebindSearch(input, select) {
+  input.oninput = () => {
+    const q = input.value.trim().toLowerCase();
+    const opts = M.filter(f => f.n.toLowerCase().includes(q));
+    select.innerHTML = '<option value="">— Todos —</option>' + opts.map(f => '<option>' + f.n + '</option>').join('');
+    if (opts.length === 1 && q.length) {
+      select.value = opts[0].n;
+      isolate(opts[0].n);
+      showFicha(opts[0]);
+    } else if (!q && select.value) {
+      select.value = '';
+      isolate(null);
+    }
+  };
+}
+
+// ============================================
 // ISOLATE / SELECT
 // ============================================
-function isolate(name) {
-  isoName = name || null;
-  objs.forEach(o => { const v = !isoName || o.f.n === isoName; o.m.visible = v; o.line.visible = v; });
+// ============================================
+// FILTERS (clúster / tecnología) + ISOLATE
+// ============================================
+let clusFilt = '', vocFilt = '', projFilt = '';
+
+function applyProjFilt() {
+  projGroup.children.forEach(c => {
+    if (c.userData && c.userData.id) c.visible = !projFilt || c.userData.tipo === projFilt;
+  });
+}
+
+function applyFilt() {
+  objs.forEach(o => {
+    let v = true;
+    if (isoName) {
+      v = o.f.n === isoName;
+    } else {
+      if (clusFilt && clusterOf[o.f.n] !== clusFilt) v = false;
+      if (vocFilt && o.f.v !== vocFilt) v = false;
+    }
+    o.m.visible = v;
+    o.line.visible = v;
+  });
   updateRivers();
   updateSites();
+}
+
+function isolate(name) {
+  isoName = name || null;
+  applyFilt();
   if (isoName) {
     const f = M.find(x => x.n === isoName);
     focus(f);
@@ -719,6 +871,41 @@ const tip = document.getElementById('tip');
 const selMun = document.getElementById('selMun');
 selMun.innerHTML = '<option value="">— Todos —</option>' + M.map(f => '<option>' + f.n + '</option>').join('');
 selMun.onchange = () => isolate(selMun.value);
+
+// Search box
+rebindSearch(document.getElementById('busMun'), selMun);
+
+// Filters
+const filtClus = document.getElementById('filtClus'), filtVoc = document.getElementById('filtVoc'), filtProj = document.getElementById('filtProj');
+filtClus.onchange = () => { clusFilt = filtClus.value; isolate(isoName); };
+filtVoc.onchange = () => { vocFilt = filtVoc.value; isolate(isoName); };
+filtProj.onchange = () => { projFilt = filtProj.value; applyProjFilt(); };
+document.getElementById('btnFiltOff').onclick = () => {
+  clusFilt = ''; vocFilt = ''; projFilt = '';
+  filtClus.value = ''; filtVoc.value = ''; filtProj.value = '';
+  isolate(isoName); applyProjFilt();
+};
+
+// Chart + Comparator
+document.getElementById('btnchart').onclick = () => {
+  const v = chartDiv.style.display === 'none' || !chartDiv.style.display;
+  chartDiv.style.display = v ? 'block' : 'none';
+  document.getElementById('btnchart').classList.toggle('on', v);
+  if (v) buildChart();
+};
+const cmpPanel = document.getElementById('cmpPanel');
+const cmpA = document.getElementById('cmpA'), cmpB = document.getElementById('cmpB');
+cmpA.innerHTML = M.map(f => '<option>' + f.n + '</option>').join('');
+cmpB.innerHTML = M.map(f => '<option>' + f.n + '</option>').join('');
+cmpA.value = 'Quibdó'; cmpB.value = 'El Litoral del San Juan';
+function cmpRender() {
+  const a = M.find(x => x.n === cmpA.value), b = M.find(x => x.n === cmpB.value);
+  if (a && b) document.getElementById('cmpOut').innerHTML = cmpHTML(a, b);
+}
+cmpA.onchange = cmpB.onchange = cmpRender;
+document.getElementById('btncmp').onclick = () => { cmpPanel.style.display = 'block'; cmpRender(); };
+document.getElementById('cmpClose').onclick = () => { cmpPanel.style.display = 'none'; };
+cmpRender();
 
 renderer.domElement.addEventListener('click', e => {
   mouse.x = (e.clientX / innerWidth) * 2 - 1;
@@ -840,8 +1027,7 @@ function show(i) { const f = M[i]; highlight(f.n); showFicha(f); selMun.value = 
 function play() {
   if (timer) return;
   isoName = null;
-  objs.forEach(o => { o.m.visible = true; o.line.visible = true; });
-  updateRivers();
+  applyFilt();
   resetView();
   setRot(true);
   controls.autoRotateSpeed = 0.5;
@@ -857,8 +1043,7 @@ document.getElementById('btnrestart').onclick = () => { ti = 0; show(0); };
 document.getElementById('btnrot').onclick = () => setRot(!controls.autoRotate);
 document.getElementById('btnview').onclick = () => {
   isoName = null; selMun.value = '';
-  objs.forEach(o => { o.m.visible = true; o.line.visible = true; });
-  updateRivers(); updateSites();
+  applyFilt();
   resetView(); setRot(true);
 };
 
@@ -956,6 +1141,7 @@ function mobOpen(target) {
     const rows = M.slice().sort((a, b) => b._pri - a._pri);
     const wrap = document.createElement('div');
     wrap.innerHTML = '<b style="color:#7fd1ff">RANKING sMCDA — 31 municipios</b>' +
+      '<div id="mobChart"></div>' +
       '<table style="width:100%;border-collapse:collapse;margin-top:4px">' +
       '<tr><th style="color:#7fd1ff;text-align:left;font-size:10px;position:sticky;top:0;background:#0a1626;padding:3px">#</th>' +
       '<th style="color:#7fd1ff;text-align:left;font-size:10px;position:sticky;top:0;background:#0a1626;padding:3px">Municipio</th>' +
@@ -973,6 +1159,10 @@ function mobOpen(target) {
     wrap.innerHTML += '</table>';
     addBackBtn(wrap);
     mobPanel.appendChild(wrap);
+    // Chart
+    const mc = wrap.querySelector('#mobChart');
+    if (mc) mc.innerHTML = '<b style="color:#7fd1ff;font-size:11px">TOP 10</b>' + buildChartHTML();
+    bindChartRows(wrap);
     // Bind ranking rows
     wrap.querySelectorAll('.mob-rank-row').forEach(tr => {
       tr.onclick = () => {
@@ -990,28 +1180,69 @@ function mobOpen(target) {
   } else if (target === 'proyectos') {
     const wrap = document.createElement('div');
     wrap.innerHTML = '<h3 style="color:#7fd1ff;margin:0 0 8px">🏗️ Proyectos Reales (' + PROYECTOS.length + ')</h3>' +
+      '<div id="mobProjFilt" style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap"></div>' +
       '<div class="mob-proj-list" style="display:flex;flex-direction:column;gap:6px"></div>';
     const list = wrap.querySelector('.mob-proj-list');
-    PROYECTOS.forEach((p, i) => {
-      const color = p.tipo === 'Hidroeléctrica' ? '#0066cc' : p.tipo === 'Solar' ? '#ffb400' : '#b400b4';
-      const mwStr = p.mw ? p.mw + ' MW' : 'Infraestructura';
-      const card = document.createElement('div');
-      card.className = 'mob-proj-card';
-      card.style.cssText = 'background:#173247;border:1px solid #2f6187;border-radius:8px;padding:8px 10px;cursor:pointer';
-      card.innerHTML =
-        '<div style="font-weight:bold;color:#7fd1ff;font-size:13px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + color + ';margin-right:6px"></span>' + p.nombre + '</div>' +
-        '<div style="font-size:10px;color:#9fb3c8;margin-top:2px">' + (TIPO_LABELS[p.tipo] || p.tipo) + ' · ' + p.mun + (p.mun2 ? ' / ' + p.mun2 : '') + '</div>' +
-        '<div style="color:#ffd54f;font-size:11px;margin-top:2px">' + mwStr + ' · $' + p.inv + 'B COP · ' +
-        '<span style="color:' + (p.estado.includes('Ejecución') ? '#00ff88' : '#ffd54f') + '">' + p.estado + '</span></div>';
-      card.onclick = () => {
-        focusProject(p.id);
-        mobClose();
-        if (innerWidth < 768) setTimeout(() => mobOpen('info'), 500);
+    function renderProjList(tipo) {
+      list.innerHTML = '';
+      PROYECTOS.forEach(p => {
+        if (tipo && p.tipo !== tipo) return;
+        const color = p.tipo === 'Hidroeléctrica' ? '#0066cc' : p.tipo === 'Solar' ? '#ffb400' : '#b400b4';
+        const mwStr = p.mw ? p.mw + ' MW' : 'Infraestructura';
+        const card = document.createElement('div');
+        card.className = 'mob-proj-card';
+        card.style.cssText = 'background:#173247;border:1px solid #2f6187;border-radius:8px;padding:8px 10px;cursor:pointer';
+        card.innerHTML =
+          '<div style="font-weight:bold;color:#7fd1ff;font-size:13px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + color + ';margin-right:6px"></span>' + p.nombre + '</div>' +
+          '<div style="font-size:10px;color:#9fb3c8;margin-top:2px">' + (TIPO_LABELS[p.tipo] || p.tipo) + ' · ' + p.mun + (p.mun2 ? ' / ' + p.mun2 : '') + '</div>' +
+          '<div style="color:#ffd54f;font-size:11px;margin-top:2px">' + mwStr + ' · $' + p.inv + 'B COP · ' +
+          '<span style="color:' + (p.estado.includes('Ejecución') ? '#00ff88' : '#ffd54f') + '">' + p.estado + '</span></div>';
+        card.onclick = () => {
+          focusProject(p.id);
+          mobClose();
+          if (innerWidth < 768) setTimeout(() => mobOpen('info'), 500);
+        };
+        list.appendChild(card);
+      });
+    }
+    // Filter chips
+    const chipDefs = [['Todos', ''], ['💧 Hidro', 'Hidroeléctrica'], ['☀️ Solar', 'Solar'], ['⚡ Transmisión', 'Transmisión']];
+    const filtBar = wrap.querySelector('#mobProjFilt');
+    chipDefs.forEach(([lab, val], i) => {
+      const chip = document.createElement('button');
+      chip.textContent = lab;
+      chip.style.cssText = 'background:#173247;color:#dff;border:1px solid #2f6187;border-radius:20px;padding:4px 12px;font-size:11px;cursor:pointer';
+      if (i === 0) chip.style.cssText += ';background:#0a84ff;color:#fff;border-color:#0a84ff';
+      chip.onclick = () => {
+        filtBar.querySelectorAll('button').forEach(b => b.style.cssText = 'background:#173247;color:#dff;border:1px solid #2f6187;border-radius:20px;padding:4px 12px;font-size:11px;cursor:pointer');
+        chip.style.cssText += ';background:#0a84ff;color:#fff;border-color:#0a84ff';
+        renderProjList(val);
       };
-      list.appendChild(card);
+      filtBar.appendChild(chip);
     });
+    renderProjList('');
     addBackBtn(wrap);
     mobPanel.appendChild(wrap);
+    
+  } else if (target === 'comparar') {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = '<h3 style="color:#7fd1ff;margin:0 0 8px">⚖️ Comparar 2 municipios</h3>' +
+      '<div style="display:flex;gap:6px;margin-bottom:8px">' +
+      '<select id="cA" style="flex:1;background:#173247;color:#dff;border:1px solid #2f6187;border-radius:6px;padding:6px;font-size:12px"></select>' +
+      '<select id="cB" style="flex:1;background:#173247;color:#dff;border:1px solid #2f6187;border-radius:6px;padding:6px;font-size:12px"></select></div>' +
+      '<div id="cOut"></div>';
+    addBackBtn(wrap);
+    mobPanel.appendChild(wrap);
+    const cA = wrap.querySelector('#cA'), cB = wrap.querySelector('#cB'), cOut = wrap.querySelector('#cOut');
+    cA.innerHTML = M.map(f => '<option>' + f.n + '</option>').join('');
+    cB.innerHTML = M.map(f => '<option>' + f.n + '</option>').join('');
+    cA.value = 'Quibdó'; cB.value = 'El Litoral del San Juan';
+    const cRender = () => {
+      const a = M.find(x => x.n === cA.value), b = M.find(x => x.n === cB.value);
+      if (a && b) cOut.innerHTML = cmpHTML(a, b);
+    };
+    cA.onchange = cB.onchange = cRender;
+    cRender();
     
   } else if (target === 'ajustes') {
     const wrap = document.createElement('div');
@@ -1075,6 +1306,32 @@ function mobOpen(target) {
         }
       };
     }
+    // Search box
+    const bM2 = wrap.querySelector('#busMun');
+    if (bM2) rebindSearch(bM2, sM2);
+    // Filters
+    const fC2 = wrap.querySelector('#filtClus'), fV2 = wrap.querySelector('#filtVoc'), fP2 = wrap.querySelector('#filtProj');
+    if (fC2) fC2.onchange = () => { clusFilt = fC2.value; isolate(isoName); };
+    if (fV2) fV2.onchange = () => { vocFilt = fV2.value; isolate(isoName); };
+    if (fP2) fP2.onchange = () => { projFilt = fP2.value; applyProjFilt(); };
+    const bFO2 = wrap.querySelector('#btnFiltOff');
+    if (bFO2) bFO2.onclick = () => {
+      clusFilt = ''; vocFilt = ''; projFilt = '';
+      if (fC2) fC2.value = ''; if (fV2) fV2.value = ''; if (fP2) fP2.value = '';
+      isolate(isoName); applyProjFilt();
+    };
+    // Chart button
+    const bCh2 = wrap.querySelector('#btnchart');
+    if (bCh2) bCh2.onclick = () => {
+      const v = chartDiv.style.display === 'none' || !chartDiv.style.display;
+      chartDiv.style.display = v ? 'block' : 'none';
+      bCh2.classList.toggle('on', v);
+      if (v) buildChart();
+      if (innerWidth < 768 && v) { mobClose(); setTimeout(() => mobOpen('ranking'), 100); }
+    };
+    // Compare button
+    const bCm2 = wrap.querySelector('#btncmp');
+    if (bCm2) bCm2.onclick = () => { cmpPanel.style.display = 'block'; cmpRender(); if (innerWidth < 768) { mobClose(); setTimeout(() => mobOpen('comparar'), 100); } };
     const bA2 = wrap.querySelector('#btnall');
     if (bA2) bA2.onclick = () => { document.getElementById('selMun').value = ''; isolate(null); };
     // Tour
