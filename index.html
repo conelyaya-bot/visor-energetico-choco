@@ -92,12 +92,19 @@ html,body{margin:0;height:100%;background:#0d1b2a;overflow:hidden;font-family:Ar
 
 /* === MOBILE FULL-SCREEN PANEL CONTAINER === */
 #mobPanel{display:none;position:fixed;inset:0;z-index:200;background:rgba(9,20,36,.99);overflow-y:auto;
-  -webkit-overflow-scrolling:touch;padding:10px 12px 60px}
-#mobPanel .mbclose{display:block;position:sticky;top:0;z-index:10;background:rgba(9,20,36,.98);
-  padding:8px 0;margin-bottom:8px;font-size:14px;color:#7fd1ff;cursor:pointer;border:none;text-align:left}
+  -webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;padding:10px 12px 60px}
+#mobPanel .mbclose{display:block;background:rgba(9,20,36,.98);padding:8px 0;margin-bottom:8px;
+  font-size:14px;color:#7fd1ff;cursor:pointer;border:none;text-align:left}
 #mobPanel .mnav{background:#0a84ff;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:16px;cursor:pointer;flex-shrink:0}
 #mobPanel .mnav:active{background:#0a6cd4}
 #mobPanel .msel{flex:1;min-width:0;background:#173247;color:#dff;border:1px solid #2f6187;border-radius:8px;padding:8px;font-size:13px}
+#mobCard table{width:100%;border-collapse:collapse;margin-top:6px;font-size:12px;border:1px solid #1d3a52;border-radius:6px}
+#mobCard td{padding:4px 6px;border-bottom:1px solid #14283c}
+#mobCard tr:last-child td{border-bottom:none}
+#mobCard td:last-child{text-align:right;color:#bfe3ff;font-weight:bold}
+#mobCard tr:nth-child(odd) td{background:rgba(255,255,255,.025)}
+#mobCard .sec{margin-top:8px;padding-top:6px;border-top:1px solid #1d3a52}
+#mobCard .rios{margin-top:8px}
 
 /* === MOBILE MEDIA QUERY === */
 @media(max-width:768px){
@@ -1382,7 +1389,7 @@ function renderMobInfo() {
     '<button class="mnav" id="mPrev" aria-label="Anterior">◀</button>' +
     '<select class="msel" id="mSel">' + opts + '</select>' +
     '<button class="mnav" id="mNext" aria-label="Siguiente">▶</button></div>' +
-    '<div style="text-align:center;color:#9fb3c8;font-size:10px;margin-bottom:8px">Municipio ' + (idx + 1) + ' de ' + M.length + (clusterOf[cur] ? ' · Clúster ' + CLUSTER_LABELS[clusterOf[cur]] : '') + ' · v6.6</div>' +
+    '<div style="text-align:center;color:#9fb3c8;font-size:10px;margin-bottom:8px">Municipio ' + (idx + 1) + ' de ' + M.length + (clusterOf[cur] ? ' · Clúster ' + CLUSTER_LABELS[clusterOf[cur]] : '') + ' · v6.7</div>' +
     '<div id="mobCard">' + cardHTML + '</div>' +
     '<hr style="border-color:#1d3a52;margin:12px 0">' +
     '<div id="mobLeg">' + document.getElementById('leg').innerHTML + '</div>';
