@@ -384,7 +384,65 @@ function siteY(s) {
   const f = M.find(x => x.n === s.m);
   return f ? hOf(f, hMode) + 0.5 : 0.5;
 }
+
+// ============================================
+// GEOMETRY HELPERS (point-in-municipality)
+// ============================================
+function ptInRing(x, y, ring) {
+  let i = 0, j = ring.length - 1, inside = false;
+  for (; i < ring.length; j = i++) {
+    const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+    if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) inside = !inside;
+  }
+  return inside;
+}
+function inMunicipio(f, x, y) {
+  const rings = [];
+  f.g.forEach(poly => poly.forEach(r => rings.push(r)));
+  if (!rings.length) return false;
+  if (!ptInRing(x, y, rings[0])) return false;
+  for (let i = 1; i < rings.length; i++) if (ptInRing(x, y, rings[i])) return false;
+  return true;
+}
+function ringArea(r) { let a = 0; for (let i = 0, j = r.length - 1; i < r.length; j = i++) a += (r[j][0] + r[i][0]) * (r[j][1] - r[i][1]); return a / 2; }
+function ringCentroid(r) {
+  const a = ringArea(r); let cx = 0, cy = 0;
+  for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+    const f = (r[j][0] * r[i][1] - r[i][0] * r[j][1]);
+    cx += (r[j][0] + r[i][0]) * f; cy += (r[j][1] + r[i][1]) * f;
+  }
+  return [cx / (6 * a), cy / (6 * a)];
+}
+function interiorPoint(f) {
+  const outer = f.g[0][0];
+  const c = ringCentroid(outer);
+  if (inMunicipio(f, c[0], c[1])) return c;
+  let b = {x1: 1e9, y1: 1e9, x2: -1e9, y2: -1e9};
+  outer.forEach(pt => { b.x1 = Math.min(b.x1, pt[0]); b.y1 = Math.min(b.y1, pt[1]); b.x2 = Math.max(b.x2, pt[0]); b.y2 = Math.max(b.y2, pt[1]); });
+  for (let iy = 0; iy < 30; iy++) for (let ix = 0; ix < 30; ix++) {
+    const px = b.x1 + (b.x2 - b.x1) * (ix + 0.5) / 30, py = b.y1 + (b.y2 - b.y1) * (iy + 0.5) / 30;
+    if (inMunicipio(f, px, py)) return [px, py];
+  }
+  return c;
+}
+function snapInto(f, x, y) {
+  if (inMunicipio(f, x, y)) return [x, y];
+  const c = interiorPoint(f);
+  let lo = 0, hi = 1;
+  for (let i = 0; i < 50; i++) {
+    const t = (lo + hi) / 2;
+    if (inMunicipio(f, x + (c[0] - x) * t, y + (c[1] - y) * t)) hi = t; else lo = t;
+  }
+  return [x + (c[0] - x) * hi, y + (c[1] - y) * hi];
+}
+
 (DATA.sites || []).forEach(s => {
+  // Ensure the marker lands INSIDE its municipality polygon
+  const mf = M.find(x => x.n === s.m);
+  if (mf && !inMunicipio(mf, s.x, s.z)) {
+    const a = snapInto(mf, s.x, s.z);
+    s.ax = a[0]; s.az = a[1];
+  }
   let geo, mat;
   if (s.t === 'OFICIAL') {
     geo = new THREE.RingGeometry(1.6, 3.0, 6);
@@ -395,7 +453,7 @@ function siteY(s) {
   }
   const mk = new THREE.Mesh(geo, mat);
   if (s.t === 'OFICIAL') mk.rotation.x = -Math.PI / 2;
-  mk.position.set(s.x, siteY(s) + (s.t === 'OFICIAL' ? 0.4 : 0), -s.z);
+  mk.position.set(s.ax !== undefined ? s.ax : s.x, siteY(s) + (s.t === 'OFICIAL' ? 0.4 : 0), s.az !== undefined ? -s.az : -s.z);
   mk.renderOrder = 26;
   mk.userData = s;
   sitesGroup.add(mk);
@@ -418,12 +476,35 @@ function projY(p) {
   return f ? hOf(f, hMode) + 0.6 : 1.5;
 }
 
+// Anchor every project INSIDE its municipality (interior point with spread)
+const _projCount = {};
+PROYECTOS.forEach(p => _projCount[p.mun] = (_projCount[p.mun] || 0) + 1);
+const _projSeen = {};
+PROYECTOS.forEach(p => {
+  const pf = M.find(x => x.n === p.mun);
+  if (!pf) { p._ax = 0; p._az = 0; return; }
+  const c = interiorPoint(pf);
+  const k = (_projSeen[p.mun] = (_projSeen[p.mun] || 0) + 1);
+  const n = _projCount[p.mun];
+  const r = Math.min(10, 3 + n * 2);
+  let placed = false;
+  for (let rr = r; rr >= 2 && !placed; rr -= 1.5) {
+    for (let a = 0; a < 8 && !placed; a++) {
+      const ang = a * Math.PI / 4 + (k - 1) * 0.35;
+      const ax = c[0] + Math.cos(ang) * rr;
+      const az = c[1] + Math.sin(ang) * rr;
+      if (inMunicipio(pf, ax, az)) { p._ax = ax; p._az = az; placed = true; }
+    }
+  }
+  if (!placed) { p._ax = c[0]; p._az = c[1]; }
+});
+
 PROYECTOS.forEach(p => {
   const color = TIPO_COLORS[p.tipo] || 0xffffff;
   
-  // Convert lat/lon to scene coordinates (approximate mapping)
-  const sx = (p.lon + 76.7) * 30;
-  const sy = (p.lat - 5.5) * 30;
+  // Anchored position (inside its municipality)
+  const sx = p._ax;
+  const sy = p._az;
   const py = projY(p);
   
   // Flat base disc (anchored to municipality surface)
@@ -495,8 +576,8 @@ buildProjPanel();
 window.focusProject = function(id) {
   const p = PROYECTOS.find(x => x.id === id);
   if (!p) return;
-  const sx = (p.lon + 76.7) * 30;
-  const sy = (p.lat - 5.5) * 30;
+  const sx = p._ax;
+  const sy = p._az;
   controls.autoRotate = false;
   controls.target.set(sx, 30, -sy);
   camera.position.set(sx + 80, 120, -sy + 200);
@@ -515,11 +596,65 @@ window.focusProject = function(id) {
     '<tr><td>Estado</td><td style="color:' + (p.estado.includes('Ejecución') ? '#00ff88' : '#ffd54f') + '">' + p.estado + '</td></tr>' +
     '<tr><td>Avance</td><td>' + p.avance + '%</td></tr>' +
     '<tr><td>Ubicación</td><td>' + p.mun + (p.mun2 ? ' / ' + p.mun2 : '') + '</td></tr>' +
+    '<tr><td>Coordenadas</td><td class="v">' + p.lat.toFixed(3) + '° N · ' + Math.abs(p.lon).toFixed(3) + '° W</td></tr>' +
     '<tr><td>Fuente</td><td style="font-size:10px">' + p.fuente + '</td></tr>' +
     '<tr><td>Estrategia</td><td style="font-size:10px">' + p.estrategia + '</td></tr>' +
     '</table>' +
     '<div style="font-size:11px;color:#9fb3c8;margin-top:4px">' + p.desc + '</div>';
 };
+
+// ============================================
+// SITE CARD (IDEAM sites selection)
+// ============================================
+function siteCoords(s) {
+  const ax = s.ax !== undefined ? s.ax : s.x;
+  const az = s.az !== undefined ? s.az : s.z;
+  return 'X ' + ax.toFixed(1) + ', Z ' + az.toFixed(1) + ' (km · rejilla del visor)';
+}
+function siteTypeLabel(s) {
+  if (s.t === 'PCH') return s.mw ? s.mw + ' MW PCH' : 'PCH';
+  if (s.t === 'SOLAR') return 'Solar' + (s.apt ? ' · ' + s.apt + ' km²' : '');
+  return 'Obra OFICIAL';
+}
+function focusSite(s) {
+  const ax = s.ax !== undefined ? s.ax : s.x;
+  const az = s.az !== undefined ? s.az : s.z;
+  const f = M.find(x => x.n === s.m);
+  if (f) { highlight(f.n); selMun.value = f.n; }
+  setRot(false);
+  controls.target.set(ax, 20, -az);
+  camera.position.set(ax + 45, 95, -az + 140);
+  controls.update();
+}
+function renderSiteCard(s) {
+  const f = M.find(x => x.n === s.m);
+  const color = s.t === 'PCH' ? '#1fa2ff' : s.t === 'SOLAR' ? '#ffa726' : '#ffd60a';
+  const icon = s.t === 'PCH' ? '⚡' : s.t === 'SOLAR' ? '☀️' : '🏛️';
+  let rows =
+    '<tr><td>Municipio</td><td>' + s.m + (f && f.v ? ' <span class="v">' + f.v + '</span>' : '') + '</td></tr>' +
+    '<tr><td>Coordenadas</td><td class="v">' + siteCoords(s) + '</td></tr>';
+  if (s.t === 'PCH') {
+    rows += '<tr><td>Río</td><td>' + (s.rio || '—') + '</td></tr>';
+    if (s.mw) rows += '<tr><td>Potencial</td><td class="v">' + s.mw + ' MW</td></tr>';
+    if (s.salto) rows += '<tr><td>Salto</td><td>' + s.salto + ' m</td></tr>';
+    if (s.q) rows += '<tr><td>Caudal</td><td>' + s.q + ' m³/s</td></tr>';
+  } else if (s.t === 'SOLAR') {
+    if (s.apt) rows += '<tr><td>Área apta</td><td class="v">' + s.apt + ' km²</td></tr>';
+  } else {
+    if (s.nombre) rows += '<tr><td>Obra</td><td>' + s.nombre + '</td></tr>';
+    if (s.estado) rows += '<tr><td>Estado</td><td>' + s.estado + '</td></tr>';
+    if (s.fuente) rows += '<tr><td>Fuente</td><td style="font-size:10px">' + s.fuente + '</td></tr>';
+    if (s.rio) rows += '<tr><td>Proyecto</td><td>' + s.rio + '</td></tr>';
+  }
+  let html =
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">' +
+    '<span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:' + color + '"></span>' +
+    '<b style="color:' + color + '">' + icon + ' Sitio ' + (s.t === 'PCH' ? 'PCH' : s.t === 'SOLAR' ? 'Solar' : 'OFICIAL') + '</b></div>' +
+    '<table>' + rows + '</table>';
+  if (s.det) html += '<div style="font-size:11px;color:#9fb3c8;margin-top:4px">' + s.det + '</div>';
+  if (s.ax !== undefined) html += '<div style="font-size:10px;color:#ffd54f;margin-top:4px">⚠ Punto original quedaba fuera del polígono municipal; se muestra en el borde del municipio.</div>';
+  document.getElementById('card').innerHTML = html;
+}
 
 // ============================================
 // IA LAYERS (water/solar detection)
@@ -615,9 +750,7 @@ RIVERS.forEach(rv => {
 
 // Project labels
 PROYECTOS.forEach(p => {
-  const sx = (p.lon + 76.7) * 30;
-  const sy = (p.lat - 5.5) * 30;
-  labels.push({el: mkLabel(p.nombre, 'p'), pos: new THREE.Vector3(sx, 70, -sy), type: 'p', p: p});
+  labels.push({el: mkLabel(p.nombre, 'p'), pos: new THREE.Vector3(p._ax, 70, -p._az), type: 'p', p: p});
 });
 
 const _pv = new THREE.Vector3();
@@ -669,7 +802,7 @@ function applyHeight() {
   // Re-anchor site markers to new surface height
   sitesGroup.children.forEach(mk => {
     const s = mk.userData;
-    mk.position.set(s.x, siteY(s) + (s.t === 'OFICIAL' ? 0.4 : 0), -s.z);
+    mk.position.set(s.ax !== undefined ? s.ax : s.x, siteY(s) + (s.t === 'OFICIAL' ? 0.4 : 0), s.az !== undefined ? -s.az : -s.z);
   });
   // Re-anchor project markers
   projGroup.children.forEach(c => {
@@ -944,6 +1077,29 @@ renderer.domElement.addEventListener('click', e => {
   mouse.y = -(e.clientY / innerHeight) * 2 + 1;
   ray.setFromCamera(mouse, camera);
   
+  // Check site markers first (they sit on the municipalities)
+  if (sitesGroup.visible) {
+    const hitS = ray.intersectObjects(sitesGroup.children.filter(c => c.visible));
+    if (hitS.length) {
+      const s = hitS[0].object.userData;
+      focusSite(s);
+      renderSiteCard(s);
+      // On mobile: automatically open info panel
+      if (innerWidth < 768) { setTimeout(() => mobOpen('info'), 350); }
+      return;
+    }
+  }
+  
+  // Check project markers
+  const hitP = ray.intersectObjects(projGroup.children.filter(c => c.visible && c.userData && c.userData.id));
+  if (hitP.length) {
+    const p = hitP[0].object.userData._p;
+    window.focusProject(p.id);
+    // On mobile: automatically open info panel after fly-to
+    if (innerWidth < 768) { setTimeout(() => mobOpen('info'), 600); }
+    return;
+  }
+  
   // Check municipalities
   const hit = ray.intersectObjects(objs.filter(o => o.m.visible).map(o => o.m));
   if (hit.length) {
@@ -951,16 +1107,6 @@ renderer.domElement.addEventListener('click', e => {
     highlight(f.n); selMun.value = f.n; showFicha(f);
     // On mobile: automatically open info panel
     if (innerWidth < 768) { setTimeout(() => mobOpen('info'), 350); }
-    return;
-  }
-  
-  // Check project markers
-  const hitP = ray.intersectObjects(projGroup.children.filter(c => c.userData && c.userData.id));
-  if (hitP.length) {
-    const p = hitP[0].object.userData._p;
-    window.focusProject(p.id);
-    // On mobile: automatically open info panel after fly-to
-    if (innerWidth < 768) { setTimeout(() => mobOpen('info'), 600); }
   }
 });
 
@@ -969,21 +1115,33 @@ renderer.domElement.addEventListener('mousemove', e => {
   mouse.y = -(e.clientY / innerHeight) * 2 + 1;
   ray.setFromCamera(mouse, camera);
   
-  const hit = ray.intersectObjects(objs.filter(o => o.m.visible).map(o => o.m));
-  if (hit.length) {
-    const f = hit[0].object.userData;
-    tip.style.display = 'block';
-    tip.style.left = (e.clientX + 12) + 'px';
-    tip.style.top = (e.clientY + 12) + 'px';
-    tip.innerHTML = '<b>' + f.n + '</b> · ' + f.mw + ' MW · prio ' + Math.round(f._pri * 100);
-  } else {
-    const hitP = ray.intersectObjects(projGroup.children.filter(c => c.userData && c.userData.id));
-    if (hitP.length) {
-      const p = hitP[0].object.userData._p;
+  if (sitesGroup.visible) {
+    const hitS = ray.intersectObjects(sitesGroup.children.filter(c => c.visible));
+    if (hitS.length) {
+      const s = hitS[0].object.userData;
       tip.style.display = 'block';
       tip.style.left = (e.clientX + 12) + 'px';
       tip.style.top = (e.clientY + 12) + 'px';
-      tip.innerHTML = '<b>🏗️ ' + p.nombre + '</b><br>' + p.tipo + ' · ' + (p.mw ? p.mw + ' MW' : 'Infraestructura') + '<br>$' + p.inv + 'B COP · ' + p.estado;
+      tip.innerHTML = (s.t === 'PCH' ? '⚡' : s.t === 'SOLAR' ? '☀️' : '🏛️') + ' <b>' + s.m + '</b> · ' + siteTypeLabel(s) + '<br>' + siteCoords(s) + (s.rio ? '<br>' + s.rio : '');
+      return;
+    }
+  }
+  
+  const hitP = ray.intersectObjects(projGroup.children.filter(c => c.visible && c.userData && c.userData.id));
+  if (hitP.length) {
+    const p = hitP[0].object.userData._p;
+    tip.style.display = 'block';
+    tip.style.left = (e.clientX + 12) + 'px';
+    tip.style.top = (e.clientY + 12) + 'px';
+    tip.innerHTML = '<b>🏗️ ' + p.nombre + '</b><br>' + p.tipo + ' · ' + (p.mw ? p.mw + ' MW' : 'Infraestructura') + '<br>' + p.lat.toFixed(3) + '°N · ' + Math.abs(p.lon).toFixed(3) + '°W · ' + p.estado;
+  } else {
+    const hit = ray.intersectObjects(objs.filter(o => o.m.visible).map(o => o.m));
+    if (hit.length) {
+      const f = hit[0].object.userData;
+      tip.style.display = 'block';
+      tip.style.left = (e.clientX + 12) + 'px';
+      tip.style.top = (e.clientY + 12) + 'px';
+      tip.innerHTML = '<b>' + f.n + '</b> · ' + f.mw + ' MW · prio ' + Math.round(f._pri * 100);
     } else {
       tip.style.display = 'none';
     }
