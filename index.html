@@ -844,8 +844,21 @@ const FLD = [['ar','Área','km²'],['pob','Población','hab'],['e','Elev. media'
 function ficha(f) {
   let t = '';
   FLD.forEach(c => { t += '<tr><td>' + c[1] + '</td><td>' + (typeof f[c[0]] === 'number' ? f[c[0]].toLocaleString() : f[c[0]]) + ' ' + c[2] + '</td></tr>'; });
+  let proj = '';
+  if (typeof PROYECTOS !== 'undefined') {
+    const ps = PROYECTOS.filter(p => p.mun === f.n || (p.mun2 && p.mun2 === f.n));
+    if (ps.length) proj = '<div class="sec"><b style="color:#7fd1ff">🏗️ PROYECTOS EN EL MUNICIPIO (' + ps.length + ')</b></div>' +
+      ps.map(p => '<div style="font-size:11px;padding:2px 0;border-bottom:1px solid #14283c"><b>' + p.nombre + '</b> <span class="v">' + p.tipo + '</span> · ' + (p.mw ? p.mw + ' MW' : '—') + ' · <span style="color:#9fb3c8">' + p.estado + '</span></div>').join('');
+  }
+  let sit = '';
+  const st = (typeof DATA !== 'undefined' && DATA.sites) ? DATA.sites.filter(s => s.m === f.n) : [];
+  if (st.length) {
+    const pc = st.filter(s => s.t === 'PCH').length, sc = st.filter(s => s.t === 'SOLAR').length;
+    sit = '<div class="sec"><b style="color:#ffd60a">📍 SITIOS IDEAM (' + st.length + ')</b> · ' + pc + ' PCH · ' + sc + ' Solar</div>';
+  }
   return '<div style="display:flex;justify-content:space-between;align-items:center"><span><b>' + f.n + '</b> <span class="v">' + f.v + '</span> ' + (f.zni ? '<span class="zni">ZNI</span>' : '') + '</span></div>' +
     '<div style="font-size:11px;color:#9fd">Prioridad sMCDA: <b style="color:#2ecc71">' + Math.round(f._pri * 100) + '/100</b></div><table>' + t + '</table>' +
+    sit + proj +
     '<div class="rios"><b style="color:#8fd3ff">' + f.nr + ' ríos aptos:</b> ' + (f.ri || '—') + '</div>';
 }
 function showFicha(f) { document.getElementById('card').innerHTML = ficha(f); }
@@ -1369,7 +1382,7 @@ function renderMobInfo() {
     '<button class="mnav" id="mPrev" aria-label="Anterior">◀</button>' +
     '<select class="msel" id="mSel">' + opts + '</select>' +
     '<button class="mnav" id="mNext" aria-label="Siguiente">▶</button></div>' +
-    '<div style="text-align:center;color:#9fb3c8;font-size:10px;margin-bottom:8px">Municipio ' + (idx + 1) + ' de ' + M.length + (clusterOf[cur] ? ' · Clúster ' + CLUSTER_LABELS[clusterOf[cur]] : '') + ' · v6.5</div>' +
+    '<div style="text-align:center;color:#9fb3c8;font-size:10px;margin-bottom:8px">Municipio ' + (idx + 1) + ' de ' + M.length + (clusterOf[cur] ? ' · Clúster ' + CLUSTER_LABELS[clusterOf[cur]] : '') + ' · v6.6</div>' +
     '<div id="mobCard">' + cardHTML + '</div>' +
     '<hr style="border-color:#1d3a52;margin:12px 0">' +
     '<div id="mobLeg">' + document.getElementById('leg').innerHTML + '</div>';
