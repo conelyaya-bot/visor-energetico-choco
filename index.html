@@ -95,6 +95,9 @@ html,body{margin:0;height:100%;background:#0d1b2a;overflow:hidden;font-family:Ar
   -webkit-overflow-scrolling:touch;padding:10px 12px 60px}
 #mobPanel .mbclose{display:block;position:sticky;top:0;z-index:10;background:rgba(9,20,36,.98);
   padding:8px 0;margin-bottom:8px;font-size:14px;color:#7fd1ff;cursor:pointer;border:none;text-align:left}
+#mobPanel .mnav{background:#0a84ff;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:16px;cursor:pointer;flex-shrink:0}
+#mobPanel .mnav:active{background:#0a6cd4}
+#mobPanel .msel{flex:1;min-width:0;background:#173247;color:#dff;border:1px solid #2f6187;border-radius:8px;padding:8px;font-size:13px}
 
 /* === MOBILE MEDIA QUERY === */
 @media(max-width:768px){
@@ -1113,6 +1116,7 @@ const tabs = document.querySelectorAll('#mobNav .mtab');
 // Close panel and reset active tab to Mapa
 function mobClose() {
   mobPanel.style.display = 'none';
+  mobPanel.dataset.tab = '';
   tabs.forEach(t => t.classList.toggle('on', t.dataset.target === 'mapa'));
 }
 
@@ -1125,18 +1129,52 @@ function addBackBtn(container) {
   container.insertBefore(btn, container.firstChild);
 }
 
+// ============================================
+// MOBILE INFO: navegación por municipio (◀ ▶)
+// ============================================
+function mobSelMuni(nm) {
+  const f = M.find(x => x.n === nm);
+  if (!f) return;
+  selMun.value = nm;
+  isolate(nm);
+  showFicha(f);
+  // Re-render info panel in place (if open)
+  if (mobPanel.style.display === 'block' && mobPanel.dataset.tab === 'info') {
+    mobPanel.innerHTML = '';
+    renderMobInfo();
+  }
+}
+
+function renderMobInfo() {
+  const cur = selMun.value || M[0].n;
+  const idx = Math.max(0, M.findIndex(x => x.n === cur));
+  const prevN = M[(idx - 1 + M.length) % M.length].n;
+  const nextN = M[(idx + 1) % M.length].n;
+  const wrap = document.createElement('div');
+  const opts = M.map((f, i) => '<option' + (i === idx ? ' selected' : '') + '>' + f.n + '</option>').join('');
+  wrap.innerHTML =
+    '<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">' +
+    '<button class="mnav" id="mPrev" aria-label="Anterior">◀</button>' +
+    '<select class="msel" id="mSel">' + opts + '</select>' +
+    '<button class="mnav" id="mNext" aria-label="Siguiente">▶</button></div>' +
+    '<div style="text-align:center;color:#9fb3c8;font-size:10px;margin-bottom:8px">Municipio ' + (idx + 1) + ' de ' + M.length + (clusterOf[cur] ? ' · Clúster ' + CLUSTER_LABELS[clusterOf[cur]] : '') + '</div>' +
+    '<div id="mobCard">' + document.getElementById('card').innerHTML + '</div>' +
+    '<hr style="border-color:#1d3a52;margin:12px 0">' +
+    '<div id="mobLeg">' + document.getElementById('leg').innerHTML + '</div>';
+  addBackBtn(wrap);
+  mobPanel.appendChild(wrap);
+  wrap.querySelector('#mPrev').onclick = () => mobSelMuni(prevN);
+  wrap.querySelector('#mNext').onclick = () => mobSelMuni(nextN);
+  wrap.querySelector('#mSel').onchange = (e) => mobSelMuni(e.target.value);
+}
+
 function mobOpen(target) {
   tabs.forEach(t => t.classList.toggle('on', t.dataset.target === target));
   mobPanel.innerHTML = '';
+  mobPanel.dataset.tab = target;
   
   if (target === 'info') {
-    const cardHTML = document.getElementById('card').innerHTML;
-    const legHTML = document.getElementById('leg').innerHTML;
-    const wrap = document.createElement('div');
-    wrap.innerHTML = cardHTML + '<hr style="border-color:#1d3a52;margin:12px 0">' + legHTML;
-    addBackBtn(wrap);
-    mobPanel.appendChild(wrap);
-    
+    renderMobInfo();
   } else if (target === 'ranking') {
     const rows = M.slice().sort((a, b) => b._pri - a._pri);
     const wrap = document.createElement('div');
