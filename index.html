@@ -52,6 +52,14 @@ html,body{margin:0;height:100%;background:#0d1b2a;overflow:hidden;font-family:Ar
 #rank tr{cursor:pointer}
 #rank tr:hover td{background:#12304a}
 #rank .bar{height:7px;border-radius:3px;background:#2ecc71}
+#muniList{position:fixed;top:340px;left:12px;z-index:8;background:rgba(9,20,36,.96);border:1px solid #26506e;border-radius:10px;padding:8px;width:250px;max-height:46vh;overflow:auto;display:none;font-size:11px}
+#muniList b{color:#7fd1ff}
+#muniList table{width:100%;border-collapse:collapse}
+#muniList th{color:#7fd1ff;text-align:left;font-size:10px;position:sticky;top:0;background:#0a1626}
+#muniList td,#muniList th{padding:2px 3px;border-bottom:1px solid #1b3348}
+#muniList tr{cursor:pointer}
+#muniList tr:hover td{background:#12304a}
+#muniList tr.on td{background:#1d3a52}
 .rios{color:#8fd3ff;font-size:11px;margin-top:4px;line-height:1.3;border-top:1px solid #244;padding-top:3px}
 
 /* Chart + Comparator */
@@ -119,7 +127,7 @@ html,body{margin:0;height:100%;background:#0d1b2a;overflow:hidden;font-family:Ar
   #dash .k .val{font-size:10px}
   #dash .k .lab{font-size:8px;color:#a9c6e0}
   /* Hide desktop panels on mobile */
-  #panel,#card,#leg,#rank,#projPanel,#chart,#cmpPanel{display:none !important}
+  #panel,#card,#leg,#rank,#projPanel,#chart,#cmpPanel,#muniList{display:none !important}
   canvas{touch-action:none;display:block}
 }
 </style>
@@ -158,7 +166,7 @@ html,body{margin:0;height:100%;background:#0d1b2a;overflow:hidden;font-family:Ar
     <select id="filtProj" title="Filtrar proyectos"><option value="">Proyectos: Todos</option><option value="Hidroeléctrica">💧 Hidro</option><option value="Solar">☀️ Solar</option><option value="Transmisión">⚡ Transmisión</option></select>
     <button id="btnFiltOff">✖ Limpiar</button></div>
   <div class="grp"><b>HERRAMIENTAS</b><br>
-    <button id="btnchart">📈 Gráfico</button><button id="btncmp">⚖ Comparar</button></div>
+    <button id="btnchart">📈 Gráfico</button><button id="btncmp">⚖ Comparar</button><button id="btnList">📑 Lista</button></div>
   <div class="grp"><b>RECORRIDO</b><br>
     <button id="btnplay">▶ Recorrer</button><button id="btnrestart">⏮</button></div>
   <div class="grp"><b>VISTA</b><br>
@@ -172,6 +180,7 @@ html,body{margin:0;height:100%;background:#0d1b2a;overflow:hidden;font-family:Ar
 <div id="rank"></div>
 <div id="chart"></div>
 <div id="leg"></div>
+<div id="muniList"></div>
 <div id="tip"></div>
 <div id="card" class="card"></div>
 <div id="projPanel"></div>
@@ -190,6 +199,7 @@ html,body{margin:0;height:100%;background:#0d1b2a;overflow:hidden;font-family:Ar
   <button class="mtab on" data-target="mapa"><span class="mi">🗺️</span>Mapa</button>
   <button class="mtab" data-target="info"><span class="mi">📋</span>Info</button>
   <button class="mtab" data-target="ranking"><span class="mi">🏆</span>Ranking</button>
+  <button class="mtab" data-target="lista"><span class="mi">📑</span>Lista</button>
   <button class="mtab" data-target="proyectos"><span class="mi">🏗️</span>Proyectos</button>
   <button class="mtab" data-target="comparar"><span class="mi">⚖️</span>Comparar</button>
   <button class="mtab" data-target="ajustes"><span class="mi">⚙️</span>Ajustes</button>
@@ -798,7 +808,48 @@ function setRot(on) { controls.autoRotate = on; document.getElementById('btnrot'
 function focus(f) { const c = centroid(f); setRot(false); controls.target.set(c[0], 10, c[1]); camera.position.set(c[0] + 60, 180, c[1] + 230); controls.update(); }
 function resetView() { controls.target.copy(TGT); camera.position.set(CAM[0], CAM[1], CAM[2]); controls.update(); }
 let hi = [];
-function highlight(nm) { hi.forEach(o => o.mat.emissive.setHex(0)); hi = []; objs.forEach(o => { if (o.f.n === nm) { o.mat.emissive.setHex(0x445500); hi.push(o); }}); }
+// Selection outline: bright gold ring (donut) hugging the municipality's contour
+let selRing = [];
+function selRingClear() {
+  selRing.forEach(o => { group.remove(o.m); group.remove(o.l); o.m.geometry.dispose(); o.m.material.dispose(); o.l.geometry.dispose(); o.l.material.dispose(); });
+  selRing = [];
+}
+function selRingMark(nm) {
+  selRingClear();
+  objs.forEach(o => {
+    if (o.f.n !== nm) return;
+    const pts = o.shp.getPoints();
+    if (pts.length < 3) return;
+    let cx = 0, cy = 0, r = 0;
+    pts.forEach(p => { cx += p.x; cy += p.y; });
+    cx /= pts.length; cy /= pts.length;
+    pts.forEach(p => { r = Math.max(r, Math.hypot(p.x - cx, p.y - cy)); });
+    const k = Math.min(1.15, Math.max(1.008, 1 + 11 / Math.max(1, r)));
+    const outer = pts.map(p => new THREE.Vector2(cx + (p.x - cx) * k, cy + (p.y - cy) * k));
+    const ring = new THREE.Shape(outer);
+    ring.holes.push(new THREE.Path(pts));
+    const m = new THREE.Mesh(new THREE.ShapeGeometry(ring, 12), new THREE.MeshBasicMaterial({color: 0xffd60a, side: THREE.DoubleSide, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false}));
+    m.rotation.x = -Math.PI / 2;
+    m.position.y = 0.55;
+    group.add(m);
+    const lgeo = new THREE.BufferGeometry().setFromPoints(outer.concat([outer[0]]).map(p => new THREE.Vector3(p.x, 0, -p.y)));
+    const l = new THREE.Line(lgeo, new THREE.LineBasicMaterial({color: 0xffffff, depthTest: false}));
+    l.position.y = 0.65;
+    group.add(l);
+    selRing.push({m, l});
+  });
+}
+window.__selRing = () => selRing.map(o => ({x: o.m.position.x, z: o.m.position.z, scale: o.m.scale.x, opacity: o.m.material.opacity, depth: o.m.material.depthTest, whiteLine: !!o.l}));
+function highlight(nm) {
+  hi.forEach(o => o.mat.emissive.setHex(0));
+  hi = [];
+  if (nm) {
+    objs.forEach(o => { if (o.f.n === nm) { o.mat.emissive.setHex(0x445500); hi.push(o); } });
+    selRingMark(nm);
+  } else {
+    selRingClear();
+  }
+}
 function applyColor() { objs.forEach(o => o.mat.color.set(colOf(o.f, colMode))); updateLeg(); }
 function applyHeight() {
   objs.forEach(o => {
@@ -883,6 +934,37 @@ function buildRank() {
   });
   rankDiv.innerHTML = h + '</table>';
 }
+
+// ============================================
+// MUNICIPALITY LIST (desktop side panel)
+// ============================================
+const muniListDiv = document.getElementById('muniList');
+function buildMuniList() {
+  let h = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><b>MUNICIPIOS (' + M.length + ')</b>' +
+    '<button id="muniListX" style="background:#173247;color:#dff;border:1px solid #2f6187;border-radius:5px;cursor:pointer;font-size:11px">✕</button></div>';
+  h += '<table><tr><th>#</th><th>Municipio</th><th>MW</th><th>Pob</th></tr>';
+  M.forEach((f, i) => {
+    h += '<tr data-muni="' + f.n + '"><td style="color:#9fb3c8">' + (i + 1) + '</td><td>' + f.n + '</td><td style="color:#ffd54f">' + f.mw + '</td><td>' + (f.pob / 1000).toFixed(0) + 'k</td></tr>';
+  });
+  muniListDiv.innerHTML = h + '</table>';
+  muniListDiv.querySelector('#muniListX').onclick = () => { muniListDiv.style.display = 'none'; };
+  muniListDiv.querySelectorAll('tr[data-muni]').forEach(tr => {
+    tr.onclick = () => {
+      const nm = tr.dataset.muni;
+      const f = M.find(x => x.n === nm);
+      if (!f) return;
+      selMun.value = nm; lastMuni = nm;
+      isolate(nm);
+      showFicha(f);
+      muniListDiv.querySelectorAll('tr.on').forEach(r => r.classList.remove('on'));
+      tr.classList.add('on');
+    };
+  });
+}
+buildMuniList();
+document.getElementById('btnList').onclick = () => {
+  muniListDiv.style.display = muniListDiv.style.display === 'block' ? 'none' : 'block';
+};
 
 // ============================================
 // RANKING CHART (top 10)
@@ -1003,6 +1085,7 @@ function isolate(name) {
   } else {
     hi.forEach(o => o.mat.emissive.setHex(0));
     hi = [];
+    selRingClear();
     resetView();
   }
 }
@@ -1127,7 +1210,7 @@ function pickAt(clientX, clientY) {
   const hit = ray.intersectObjects(objs.filter(o => o.m.visible).map(o => o.m));
   if (hit.length) {
     const f = hit[0].object.userData;
-    highlight(f.n); selMun.value = f.n; lastMuni = f.n; showFicha(f);
+    highlight(f.n); selMun.value = f.n; lastMuni = f.n; showFicha(f); focus(f);
     // On mobile: automatically open info panel
     if (innerWidth < 768) { setTimeout(() => mobOpen('info'), 350); }
   }
@@ -1390,7 +1473,7 @@ function renderMobInfo() {
     '<button class="mnav" id="mPrev" aria-label="Anterior">◀</button>' +
     '<select class="msel" id="mSel">' + opts + '</select>' +
     '<button class="mnav" id="mNext" aria-label="Siguiente">▶</button></div>' +
-    '<div style="text-align:center;color:#9fb3c8;font-size:10px;margin-bottom:8px">Municipio ' + (idx + 1) + ' de ' + M.length + (clusterOf[cur] ? ' · Clúster ' + CLUSTER_LABELS[clusterOf[cur]] : '') + ' · v6.8</div>' +
+    '<div style="text-align:center;color:#9fb3c8;font-size:10px;margin-bottom:8px">Municipio ' + (idx + 1) + ' de ' + M.length + (clusterOf[cur] ? ' · Clúster ' + CLUSTER_LABELS[clusterOf[cur]] : '') + ' · v6.9</div>' +
     '<div id="mobCard">' + cardHTML + '</div>' +
     '<hr style="border-color:#1d3a52;margin:12px 0">' +
     '<div id="mobLeg">' + document.getElementById('leg').innerHTML + '</div>';
@@ -1411,7 +1494,7 @@ function mobOpen(target) {
   } else if (target === 'ranking') {
     const rows = M.slice().sort((a, b) => b._pri - a._pri);
     const wrap = document.createElement('div');
-    wrap.innerHTML = '<b style="color:#7fd1ff">RANKING sMCDA — 31 municipios</b>' +
+    let rh = '<b style="color:#7fd1ff">RANKING sMCDA — 31 municipios</b>' +
       '<div id="mobChart"></div>' +
       '<table style="width:100%;border-collapse:collapse;margin-top:4px">' +
       '<tr><th style="color:#7fd1ff;text-align:left;font-size:10px;position:sticky;top:0;background:#0a1626;padding:3px">#</th>' +
@@ -1420,14 +1503,15 @@ function mobOpen(target) {
       '<th style="color:#7fd1ff;text-align:left;font-size:10px;position:sticky;top:0;background:#0a1626;padding:3px">MW</th>' +
       '<th style="color:#7fd1ff;text-align:left;font-size:10px;position:sticky;top:0;background:#0a1626;padding:3px">Pob</th></tr>';
     rows.forEach((f, i) => {
-      wrap.innerHTML += '<tr class="mob-rank-row" data-muni="' + f.n + '" style="cursor:pointer;border-bottom:1px solid #1b3348">' +
+      rh += '<tr class="mob-rank-row" data-muni="' + f.n + '" style="cursor:pointer;border-bottom:1px solid #1b3348">' +
         '<td style="padding:3px">' + (i + 1) + '</td>' +
         '<td style="padding:3px">' + f.n + '</td>' +
         '<td style="padding:3px"><div style="height:7px;border-radius:3px;background:' + priRamp(f._pri) + ';width:' + Math.round(f._pri * 46) + 'px;display:inline-block;vertical-align:middle"></div> ' + Math.round(f._pri * 100) + '</td>' +
         '<td style="padding:3px">' + f.mw + '</td>' +
         '<td style="padding:3px">' + (f.pob / 1000).toFixed(0) + 'k</td></tr>';
     });
-    wrap.innerHTML += '</table>';
+    rh += '</table>';
+    wrap.innerHTML = rh;
     addBackBtn(wrap);
     mobPanel.appendChild(wrap);
     // Chart
@@ -1446,6 +1530,37 @@ function mobOpen(target) {
         mobClose();
         // On mobile, auto-open info after a brief moment
         if (innerWidth < 768) setTimeout(() => mobOpen('info'), 400);
+      };
+    });
+    
+  } else if (target === 'lista') {
+    const wrap = document.createElement('div');
+    let lh = '<b style="color:#7fd1ff">MUNICIPIOS DEL CHOCÓ (' + M.length + ')</b>' +
+      '<table style="width:100%;border-collapse:collapse;margin-top:4px">' +
+      '<tr><th style="color:#7fd1ff;text-align:left;font-size:10px;position:sticky;top:0;background:#0a1626;padding:3px">#</th>' +
+      '<th style="color:#7fd1ff;text-align:left;font-size:10px;position:sticky;top:0;background:#0a1626;padding:3px">Municipio</th>' +
+      '<th style="color:#7fd1ff;text-align:left;font-size:10px;position:sticky;top:0;background:#0a1626;padding:3px">MW</th>' +
+      '<th style="color:#7fd1ff;text-align:left;font-size:10px;position:sticky;top:0;background:#0a1626;padding:3px">Pob</th></tr>';
+    M.forEach((f, i) => {
+      lh += '<tr class="mob-rank-row" data-muni="' + f.n + '" style="cursor:pointer;border-bottom:1px solid #1b3348">' +
+        '<td style="padding:3px;color:#9fb3c8">' + (i + 1) + '</td>' +
+        '<td style="padding:3px">' + f.n + '</td>' +
+        '<td style="padding:3px;color:#ffd54f">' + f.mw + '</td>' +
+        '<td style="padding:3px">' + (f.pob / 1000).toFixed(0) + 'k</td></tr>';
+    });
+    lh += '</table>';
+    wrap.innerHTML = lh;
+    addBackBtn(wrap);
+    mobPanel.appendChild(wrap);
+    wrap.querySelectorAll('.mob-rank-row').forEach(tr => {
+      tr.onclick = () => {
+        const nm = tr.dataset.muni;
+        const f = M.find(x => x.n === nm);
+        if (!f) return;
+        selMun.value = nm; lastMuni = nm;
+        isolate(nm);
+        showFicha(f);
+        if (innerWidth < 768) setTimeout(() => mobOpen('info'), 250);
       };
     });
     
@@ -1656,6 +1771,11 @@ addEventListener('resize', () => {
       child.scale.set(1 + 0.2 * Math.sin(t + i), 1 + 0.2 * Math.sin(t + i), 1);
     }
   });
+  // Pulse the selection ring
+  if (selRing.length) {
+    const p = 0.6 + 0.35 * Math.sin(t * 1.6);
+    selRing.forEach(o => { o.m.material.opacity = p; });
+  }
   
   renderer.render(scene, camera);
 })();
