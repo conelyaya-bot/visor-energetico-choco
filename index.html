@@ -594,6 +594,7 @@ buildProjPanel();
 window.focusProject = function(id) {
   const p = PROYECTOS.find(x => x.id === id);
   if (!p) return;
+  if (p.mun && M.find(x => x.n === p.mun)) isolate(p.mun);
   const sx = p._ax;
   const sy = p._az;
   controls.autoRotate = false;
@@ -638,7 +639,7 @@ function focusSite(s) {
   const ax = s.ax !== undefined ? s.ax : s.x;
   const az = s.az !== undefined ? s.az : s.z;
   const f = M.find(x => x.n === s.m);
-  if (f) { highlight(f.n); selMun.value = f.n; }
+  if (f) { isolate(f.n); selMun.value = f.n; }
   setRot(false);
   controls.target.set(ax, 20, -az);
   camera.position.set(ax + 45, 95, -az + 140);
@@ -784,7 +785,7 @@ function updateLabels() {
       if (!riversWanted) vis = false;
       else if (isoName) { const f = M.find(x => x.n === isoName); vis = (f.ri || '').split('; ').indexOf(l.rv.n) >= 0; }
     } else if (l.type === 'p') {
-      vis = projGroup.visible && (!projFilt || l.p.tipo === projFilt);
+      vis = projGroup.visible && (!isoName || l.p.mun === isoName || l.p.mun2 === isoName) && (!projFilt || l.p.tipo === projFilt);
       l.pos.y = projY(l.p) + 13;
     }
     if (!vis) { l.el.style.display = 'none'; return; }
@@ -824,27 +825,50 @@ function selRingMark(nm) {
     pts.forEach(p => { cx += p.x; cy += p.y; });
     cx /= pts.length; cy /= pts.length;
     pts.forEach(p => { r = Math.max(r, Math.hypot(p.x - cx, p.y - cy)); });
-    const k = Math.min(1.15, Math.max(1.008, 1 + 11 / Math.max(1, r)));
-    const outer = pts.map(p => new THREE.Vector2(cx + (p.x - cx) * k, cy + (p.y - cy) * k));
-    const ring = new THREE.Shape(outer);
-    ring.holes.push(new THREE.Path(pts));
-    const m = new THREE.Mesh(new THREE.ShapeGeometry(ring, 12), new THREE.MeshBasicMaterial({color: 0xffd60a, side: THREE.DoubleSide, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false}));
-    m.rotation.x = -Math.PI / 2;
-    m.position.y = 0.55;
-    group.add(m);
-    const lgeo = new THREE.BufferGeometry().setFromPoints(outer.concat([outer[0]]).map(p => new THREE.Vector3(p.x, 0, -p.y)));
-    const l = new THREE.Line(lgeo, new THREE.LineBasicMaterial({color: 0xffffff, depthTest: false}));
-    l.position.y = 0.65;
-    group.add(l);
-    selRing.push({m, l});
+    const sc = (add) => Math.max(1.01, 1 + add / Math.max(1, r));
+    const k1 = sc(3.5);                    // banda blanca ajustada al contorno
+    const k2 = Math.min(1.30, sc(18));     // banda dorada gruesa exterior
+    const grow = (k) => pts.map(p => new THREE.Vector2(cx + (p.x - cx) * k, cy + (p.y - cy) * k));
+    const band = (kOuter, kInner, color, y) => {
+      const s = new THREE.Shape(grow(kOuter));
+      s.holes.push(new THREE.Path(grow(kInner)));
+      const m = new THREE.Mesh(new THREE.ShapeGeometry(s, 12), new THREE.MeshBasicMaterial({color: color, side: THREE.DoubleSide, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false}));
+      m.rotation.x = -Math.PI / 2;
+      m.position.y = y;
+      m.renderOrder = 24;
+      group.add(m);
+      return m;
+    };
+    const edge = (k, color, y) => {
+      const g = new THREE.BufferGeometry().setFromPoints(grow(k).concat([grow(k)[0]]).map(p => new THREE.Vector3(p.x, 0, -p.y)));
+      const l = new THREE.Line(g, new THREE.LineBasicMaterial({color: color, depthTest: false}));
+      l.position.y = y;
+      l.renderOrder = 25;
+      group.add(l);
+      return l;
+    };
+    const m1 = band(k1, 1, 0xffffff, 0.5);      // contorno blanco grueso sobre el límite real
+    const m2 = band(k2, k1, 0xffd60a, 0.75);    // anillo dorado ancho exterior
+    const l1 = edge(k2, 0xffffff, 0.9);         // filo exterior blanco (nitidez)
+    selRing.push({m: m1, l: l1});
+    selRing.push({m: m2, l: l1});
   });
 }
 window.__selRing = () => selRing.map(o => ({x: o.m.position.x, z: o.m.position.z, scale: o.m.scale.x, opacity: o.m.material.opacity, depth: o.m.material.depthTest, whiteLine: !!o.l}));
+window.__dbg = () => ({
+  iso: isoName,
+  muniVisible: objs.filter(o => o.m.visible).length,
+  sitesVisible: sitesGroup.children.filter(c => c.visible).length,
+  projVisible: projGroup.children.filter(c => c.userData && c.userData.id && c.visible).length,
+  ring: selRing.length,
+  sitesOfMuni: (nm) => (DATA.sites || []).filter(s => s.m === nm).length,
+  projOfMuni: (nm) => PROYECTOS.filter(p => p.mun === nm || p.mun2 === nm).length
+});
 function highlight(nm) {
   hi.forEach(o => o.mat.emissive.setHex(0));
   hi = [];
   if (nm) {
-    objs.forEach(o => { if (o.f.n === nm) { o.mat.emissive.setHex(0x445500); hi.push(o); } });
+    objs.forEach(o => { if (o.f.n === nm) { o.mat.emissive.setHex(0x997700); hi.push(o); } });
     selRingMark(nm);
   } else {
     selRingClear();
@@ -1054,7 +1078,12 @@ let clusFilt = '', vocFilt = '', projFilt = '';
 
 function applyProjFilt() {
   projGroup.children.forEach(c => {
-    if (c.userData && c.userData.id) c.visible = !projFilt || c.userData._p.tipo === projFilt;
+    if (!c.userData || !c.userData.id) return;
+    const p = c.userData._p;
+    let v = projGroup.visible;
+    if (isoName) v = v && (p.mun === isoName || p.mun2 === isoName);
+    if (projFilt) v = v && p.tipo === projFilt;
+    c.visible = v;
   });
 }
 
@@ -1077,6 +1106,7 @@ function applyFilt() {
 function isolate(name) {
   isoName = name || null;
   applyFilt();
+  applyProjFilt();
   if (isoName) {
     const f = M.find(x => x.n === isoName);
     focus(f);
@@ -1210,7 +1240,7 @@ function pickAt(clientX, clientY) {
   const hit = ray.intersectObjects(objs.filter(o => o.m.visible).map(o => o.m));
   if (hit.length) {
     const f = hit[0].object.userData;
-    highlight(f.n); selMun.value = f.n; lastMuni = f.n; showFicha(f); focus(f);
+    isolate(f.n); selMun.value = f.n; lastMuni = f.n;
     // On mobile: automatically open info panel
     if (innerWidth < 768) { setTimeout(() => mobOpen('info'), 350); }
   }
@@ -1473,7 +1503,7 @@ function renderMobInfo() {
     '<button class="mnav" id="mPrev" aria-label="Anterior">◀</button>' +
     '<select class="msel" id="mSel">' + opts + '</select>' +
     '<button class="mnav" id="mNext" aria-label="Siguiente">▶</button></div>' +
-    '<div style="text-align:center;color:#9fb3c8;font-size:10px;margin-bottom:8px">Municipio ' + (idx + 1) + ' de ' + M.length + (clusterOf[cur] ? ' · Clúster ' + CLUSTER_LABELS[clusterOf[cur]] : '') + ' · v6.9</div>' +
+    '<div style="text-align:center;color:#9fb3c8;font-size:10px;margin-bottom:8px">Municipio ' + (idx + 1) + ' de ' + M.length + (clusterOf[cur] ? ' · Clúster ' + CLUSTER_LABELS[clusterOf[cur]] : '') + ' · v7.0</div>' +
     '<div id="mobCard">' + cardHTML + '</div>' +
     '<hr style="border-color:#1d3a52;margin:12px 0">' +
     '<div id="mobLeg">' + document.getElementById('leg').innerHTML + '</div>';
