@@ -288,9 +288,9 @@ function colOf(f,m){
   return f.cu;
 }
 function hOf(f,m){
-  if(m==='mw')return 6+Math.sqrt(Math.max(0.001,f.mw)/Math.max(1,mxMW))*70;
-  if(m==='qm')return 6+Math.sqrt(Math.max(0.001,f.qm)/Math.max(1,mxQ))*65;
-  return 6+Math.sqrt(f.e/mxE)*42;
+  if(m==='mw')return 3+Math.sqrt(Math.max(0.001,f.mw)/Math.max(1,mxMW))*30;
+  if(m==='qm')return 3+Math.sqrt(Math.max(0.001,f.qm)/Math.max(1,mxQ))*26;
+  return 3+Math.sqrt(f.e/mxE)*20;
 }
 
 // Scene setup
@@ -375,24 +375,27 @@ scene.add(riversGroup);
 let riversWanted = false, isoName = null;
 
 // ============================================
-// IDEAM SITES
+// IDEAM SITES (professional flat markers)
 // ============================================
 const sitesGroup = new THREE.Group();
-sitesGroup.visible = false;
-let sitesWanted = false;
+sitesGroup.visible = true;
+let sitesWanted = true;
+function siteY(s) {
+  const f = M.find(x => x.n === s.m);
+  return f ? hOf(f, hMode) + 0.5 : 0.5;
+}
 (DATA.sites || []).forEach(s => {
-  let geo, mat, yy;
+  let geo, mat;
   if (s.t === 'OFICIAL') {
-    geo = new THREE.OctahedronGeometry(5);
-    mat = new THREE.MeshBasicMaterial({color: 0xffd60a, depthTest: false, transparent: true});
-    yy = 66;
+    geo = new THREE.RingGeometry(1.6, 3.0, 6);
+    mat = new THREE.MeshBasicMaterial({color: 0xffd60a, depthTest: false, transparent: true, opacity: 0.95, side: THREE.DoubleSide});
   } else {
-    geo = new THREE.ConeGeometry(2.6, 7, 4);
-    mat = new THREE.MeshBasicMaterial({color: s.t === 'PCH' ? 0x0a84ff : 0xff9f0a, depthTest: false, transparent: true});
-    yy = 55;
+    geo = new THREE.CylinderGeometry(s.t === 'SOLAR' ? 2.0 : 1.5, s.t === 'SOLAR' ? 2.0 : 1.5, 0.3, 6);
+    mat = new THREE.MeshPhongMaterial({color: s.t === 'PCH' ? 0x1fa2ff : 0xffa726, emissive: s.t === 'PCH' ? 0x0a5ab0 : 0xc96a00, shininess: 10});
   }
   const mk = new THREE.Mesh(geo, mat);
-  mk.position.set(s.x, yy, -s.z);
+  if (s.t === 'OFICIAL') mk.rotation.x = -Math.PI / 2;
+  mk.position.set(s.x, siteY(s) + (s.t === 'OFICIAL' ? 0.4 : 0), -s.z);
   mk.renderOrder = 26;
   mk.userData = s;
   sitesGroup.add(mk);
@@ -405,10 +408,15 @@ function updateSites() {
 }
 
 // ============================================
-// REAL PROJECT MARKERS
+// REAL PROJECT MARKERS (compact, anchored)
 // ============================================
 const projGroup = new THREE.Group();
 projGroup.visible = true;
+
+function projY(p) {
+  const f = M.find(x => x.n === p.mun);
+  return f ? hOf(f, hMode) + 0.6 : 1.5;
+}
 
 PROYECTOS.forEach(p => {
   const color = TIPO_COLORS[p.tipo] || 0xffffff;
@@ -416,44 +424,48 @@ PROYECTOS.forEach(p => {
   // Convert lat/lon to scene coordinates (approximate mapping)
   const sx = (p.lon + 76.7) * 30;
   const sy = (p.lat - 5.5) * 30;
+  const py = projY(p);
   
-  // Main marker (tall pin)
-  const pinGeo = new THREE.CylinderGeometry(0.5, 0.5, 20, 8);
-  const pinMat = new THREE.MeshPhongMaterial({color: color, emissive: color, emissiveIntensity: 0.4, transparent: true, opacity: 0.85});
-  const pin = new THREE.Mesh(pinGeo, pinMat);
-  pin.position.set(sx, 55, -sy);
-  pin.renderOrder = 30;
-  pin.userData = p;
-  projGroup.add(pin);
+  // Flat base disc (anchored to municipality surface)
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(3.2, 24), new THREE.MeshBasicMaterial({color: color, depthTest: false, transparent: true, opacity: 0.95, side: THREE.DoubleSide}));
+  disc.rotation.x = -Math.PI / 2;
+  disc.position.set(sx, py, -sy);
+  disc.renderOrder = 30;
+  disc.userData = {id: p.id, _role: 'disc', _p: p};
+  projGroup.add(disc);
   
-  // Top sphere
-  const sphereGeo = new THREE.SphereGeometry(3, 12, 8);
-  const sphereMat = new THREE.MeshPhongMaterial({color: color, emissive: color, emissiveIntensity: 0.6});
-  const sphere = new THREE.Mesh(sphereGeo, sphereMat);
-  sphere.position.set(sx, 66, -sy);
-  sphere.renderOrder = 31;
-  sphere.userData = p;
-  projGroup.add(sphere);
+  // Thin stem from surface to marker head
+  const stemH = 9;
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, stemH, 6), new THREE.MeshBasicMaterial({color: 0xffffff, transparent: true, opacity: 0.45, depthTest: false}));
+  stem.position.set(sx, py + stemH / 2, -sy);
+  stem.renderOrder = 29;
+  stem.userData = {id: p.id, _role: 'stem', _p: p};
+  projGroup.add(stem);
   
-  // Pulsing ring for "En Ejecución"
+  // Compact marker head (octahedron)
+  const head = new THREE.Mesh(new THREE.OctahedronGeometry(2.4), new THREE.MeshPhongMaterial({color: color, emissive: color, emissiveIntensity: 0.55, depthTest: false}));
+  head.position.set(sx, py + stemH + 0.4, -sy);
+  head.renderOrder = 31;
+  head.userData = {id: p.id, _role: 'head', _p: p};
+  projGroup.add(head);
+  
+  // Pulsing ring for "En Ejecución" (flat on surface)
   if (p.estado.includes('Ejecución') || p.estado.includes('Ejecut')) {
-    const ringGeo = new THREE.RingGeometry(4, 6, 24);
-    const ringMat = new THREE.MeshBasicMaterial({color: 0x00ff88, transparent: true, opacity: 0.5, side: THREE.DoubleSide});
-    const ring = new THREE.Mesh(ringGeo, ringMat);
+    const ring = new THREE.Mesh(new THREE.RingGeometry(4, 6, 24), new THREE.MeshBasicMaterial({color: 0x00ff88, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthTest: false}));
     ring.rotation.x = -Math.PI / 2;
-    ring.position.set(sx, 60, -sy);
-    ring.renderOrder = 29;
+    ring.position.set(sx, py + 0.15, -sy);
+    ring.renderOrder = 28;
+    ring.userData = {id: p.id, _role: 'ring', _p: p};
     projGroup.add(ring);
   }
   
-  // MW tower for hydro/solar with capacity
+  // MW label as compact cylinder (capacity indicator), short
   if (p.mw && p.mw > 1) {
-    const towerH = Math.min(25, 8 + Math.sqrt(p.mw) * 3);
-    const towerGeo = new THREE.BoxGeometry(2, towerH, 2);
-    const towerMat = new THREE.MeshPhongMaterial({color: color, transparent: true, opacity: 0.6});
-    const tower = new THREE.Mesh(towerGeo, towerMat);
-    tower.position.set(sx + 5, 45 + towerH/2, -sy);
+    const towerH = Math.min(14, 4 + Math.sqrt(p.mw) * 2);
+    const tower = new THREE.Mesh(new THREE.BoxGeometry(1.6, towerH, 1.6), new THREE.MeshPhongMaterial({color: color, transparent: true, opacity: 0.5}));
+    tower.position.set(sx, py + 0.6 + towerH / 2, -sy);
     tower.renderOrder = 30;
+    tower.userData = {id: p.id, _role: 'tower', _p: p};
     projGroup.add(tower);
   }
 });
@@ -622,6 +634,7 @@ function updateLabels() {
       else if (isoName) { const f = M.find(x => x.n === isoName); vis = (f.ri || '').split('; ').indexOf(l.rv.n) >= 0; }
     } else if (l.type === 'p') {
       vis = projGroup.visible && (!projFilt || l.p.tipo === projFilt);
+      l.pos.y = projY(l.p) + 13;
     }
     if (!vis) { l.el.style.display = 'none'; return; }
     _pv.copy(l.pos).project(camera);
@@ -652,6 +665,22 @@ function applyHeight() {
     o.m.geometry = new THREE.ExtrudeGeometry(o.shp, {depth: hOf(o.f, hMode), bevelEnabled: false});
     o.line.geometry.dispose();
     o.line.geometry = new THREE.EdgesGeometry(o.m.geometry);
+  });
+  // Re-anchor site markers to new surface height
+  sitesGroup.children.forEach(mk => {
+    const s = mk.userData;
+    mk.position.set(s.x, siteY(s) + (s.t === 'OFICIAL' ? 0.4 : 0), -s.z);
+  });
+  // Re-anchor project markers
+  projGroup.children.forEach(c => {
+    const u = c.userData;
+    if (!u || !u._role || !u._p) return;
+    const py = projY(u._p);
+    if (u._role === 'disc') c.position.y = py;
+    else if (u._role === 'stem') c.position.y = py + 9 / 2;
+    else if (u._role === 'head') c.position.y = py + 9 + 0.4;
+    else if (u._role === 'ring') c.position.y = py + 0.15;
+    else if (u._role === 'tower') c.position.y = py + 0.6 + Math.min(14, 4 + Math.sqrt(u._p.mw) * 2) / 2;
   });
 }
 
@@ -789,7 +818,7 @@ let clusFilt = '', vocFilt = '', projFilt = '';
 
 function applyProjFilt() {
   projGroup.children.forEach(c => {
-    if (c.userData && c.userData.id) c.visible = !projFilt || c.userData.tipo === projFilt;
+    if (c.userData && c.userData.id) c.visible = !projFilt || c.userData._p.tipo === projFilt;
   });
 }
 
@@ -928,7 +957,7 @@ renderer.domElement.addEventListener('click', e => {
   // Check project markers
   const hitP = ray.intersectObjects(projGroup.children.filter(c => c.userData && c.userData.id));
   if (hitP.length) {
-    const p = hitP[0].object.userData;
+    const p = hitP[0].object.userData._p;
     window.focusProject(p.id);
     // On mobile: automatically open info panel after fly-to
     if (innerWidth < 768) { setTimeout(() => mobOpen('info'), 600); }
@@ -950,7 +979,7 @@ renderer.domElement.addEventListener('mousemove', e => {
   } else {
     const hitP = ray.intersectObjects(projGroup.children.filter(c => c.userData && c.userData.id));
     if (hitP.length) {
-      const p = hitP[0].object.userData;
+      const p = hitP[0].object.userData._p;
       tip.style.display = 'block';
       tip.style.left = (e.clientX + 12) + 'px';
       tip.style.top = (e.clientY + 12) + 'px';
