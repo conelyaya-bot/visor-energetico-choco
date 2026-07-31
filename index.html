@@ -2,10 +2,10 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Plan Maestro Energía Chocó 2026</title>
 <style>
-html,body{margin:0;height:100%;background:#0d1b2a;overflow:hidden;font-family:Arial,Helvetica,sans-serif}
+html,body{margin:0;height:100%;background:#0d1b2a;overflow:hidden;font-family:Arial,Helvetica,sans-serif;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
 #hud{position:fixed;top:10px;left:12px;color:#eef;max-width:320px;z-index:5}
 #hud h1{font-size:16px;margin:0 0 2px}
 #hud p{font-size:10.5px;margin:1px 0;color:#9fb3c8}
@@ -112,7 +112,7 @@ html,body{margin:0;height:100%;background:#0d1b2a;overflow:hidden;font-family:Ar
   #dash .k .lab{font-size:7px}
   /* Hide desktop panels on mobile */
   #panel,#card,#leg,#rank,#projPanel,#chart,#cmpPanel{display:none !important}
-  canvas{touch-action:pan-x pan-y}
+  canvas{touch-action:none;display:block}
 }
 </style>
 </head>
@@ -1072,11 +1072,12 @@ document.getElementById('btncmp').onclick = () => { cmpPanel.style.display = 'bl
 document.getElementById('cmpClose').onclick = () => { cmpPanel.style.display = 'none'; };
 cmpRender();
 
-renderer.domElement.addEventListener('click', e => {
-  mouse.x = (e.clientX / innerWidth) * 2 - 1;
-  mouse.y = -(e.clientY / innerHeight) * 2 + 1;
+// ---- TAP / CLICK PICK (mouse + touch) ----
+function pickAt(clientX, clientY) {
+  mouse.x = (clientX / innerWidth) * 2 - 1;
+  mouse.y = -(clientY / innerHeight) * 2 + 1;
   ray.setFromCamera(mouse, camera);
-  
+
   // Check site markers first (they sit on the municipalities)
   if (sitesGroup.visible) {
     const hitS = ray.intersectObjects(sitesGroup.children.filter(c => c.visible));
@@ -1089,7 +1090,7 @@ renderer.domElement.addEventListener('click', e => {
       return;
     }
   }
-  
+
   // Check project markers
   const hitP = ray.intersectObjects(projGroup.children.filter(c => c.visible && c.userData && c.userData.id));
   if (hitP.length) {
@@ -1099,7 +1100,7 @@ renderer.domElement.addEventListener('click', e => {
     if (innerWidth < 768) { setTimeout(() => mobOpen('info'), 600); }
     return;
   }
-  
+
   // Check municipalities
   const hit = ray.intersectObjects(objs.filter(o => o.m.visible).map(o => o.m));
   if (hit.length) {
@@ -1108,13 +1109,36 @@ renderer.domElement.addEventListener('click', e => {
     // On mobile: automatically open info panel
     if (innerWidth < 768) { setTimeout(() => mobOpen('info'), 350); }
   }
+}
+
+// Tap detection: a touch counts as tap only if finger moves <12px in <600ms.
+// This way rotating/zooming never selects a municipality by mistake.
+let _tap = null, _tapHandled = false;
+renderer.domElement.addEventListener('pointerdown', e => {
+  setRot(false);
+  _tap = { x: e.clientX, y: e.clientY, t: performance.now(), type: e.pointerType };
+});
+renderer.domElement.addEventListener('pointerup', e => {
+  if (_tap && _tap.type !== 'mouse') {
+    const d = Math.hypot(e.clientX - _tap.x, e.clientY - _tap.y);
+    if (d < 12 && performance.now() - _tap.t < 600) {
+      _tapHandled = true;
+      pickAt(e.clientX, e.clientY);
+    }
+  }
+  _tap = null;
+});
+renderer.domElement.addEventListener('click', e => {
+  if (_tapHandled) { _tapHandled = false; return; }
+  pickAt(e.clientX, e.clientY);
 });
 
-renderer.domElement.addEventListener('mousemove', e => {
+renderer.domElement.addEventListener('pointermove', e => {
+  if (e.pointerType !== 'mouse') return; // hover only for mouse
   mouse.x = (e.clientX / innerWidth) * 2 - 1;
   mouse.y = -(e.clientY / innerHeight) * 2 + 1;
   ray.setFromCamera(mouse, camera);
-  
+
   if (sitesGroup.visible) {
     const hitS = ray.intersectObjects(sitesGroup.children.filter(c => c.visible));
     if (hitS.length) {
@@ -1126,7 +1150,7 @@ renderer.domElement.addEventListener('mousemove', e => {
       return;
     }
   }
-  
+
   const hitP = ray.intersectObjects(projGroup.children.filter(c => c.visible && c.userData && c.userData.id));
   if (hitP.length) {
     const p = hitP[0].object.userData._p;
@@ -1147,8 +1171,6 @@ renderer.domElement.addEventListener('mousemove', e => {
     }
   }
 });
-
-renderer.domElement.addEventListener('pointerdown', () => setRot(false));
 
 // ============================================
 // PANEL BUTTONS
