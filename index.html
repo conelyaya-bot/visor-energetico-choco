@@ -1036,6 +1036,7 @@ const tip = document.getElementById('tip');
 const selMun = document.getElementById('selMun');
 selMun.innerHTML = '<option value="">— Todos —</option>' + M.map(f => '<option>' + f.n + '</option>').join('');
 selMun.onchange = () => isolate(selMun.value);
+let lastMuni = ''; // último municipio seleccionado (tap móvil / navegación) — referencia para el panel de info
 
 // Search box
 rebindSearch(document.getElementById('busMun'), selMun);
@@ -1105,7 +1106,7 @@ function pickAt(clientX, clientY) {
   const hit = ray.intersectObjects(objs.filter(o => o.m.visible).map(o => o.m));
   if (hit.length) {
     const f = hit[0].object.userData;
-    highlight(f.n); selMun.value = f.n; showFicha(f);
+    highlight(f.n); selMun.value = f.n; lastMuni = f.n; showFicha(f);
     // On mobile: automatically open info panel
     if (innerWidth < 768) { setTimeout(() => mobOpen('info'), 350); }
   }
@@ -1344,7 +1345,7 @@ function addBackBtn(container) {
 function mobSelMuni(nm) {
   const f = M.find(x => x.n === nm);
   if (!f) return;
-  selMun.value = nm;
+  selMun.value = nm; lastMuni = nm;
   isolate(nm);
   showFicha(f);
   // Re-render info panel in place (if open)
@@ -1355,19 +1356,21 @@ function mobSelMuni(nm) {
 }
 
 function renderMobInfo() {
-  const cur = selMun.value || M[0].n;
+  const cur = selMun.value || lastMuni || M[0].n;
   const idx = Math.max(0, M.findIndex(x => x.n === cur));
+  const curF = M.find(x => x.n === cur);
   const prevN = M[(idx - 1 + M.length) % M.length].n;
   const nextN = M[(idx + 1) % M.length].n;
   const wrap = document.createElement('div');
   const opts = M.map((f, i) => '<option' + (i === idx ? ' selected' : '') + '>' + f.n + '</option>').join('');
+  const cardHTML = curF ? ficha(curF) : document.getElementById('card').innerHTML;
   wrap.innerHTML =
     '<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">' +
     '<button class="mnav" id="mPrev" aria-label="Anterior">◀</button>' +
     '<select class="msel" id="mSel">' + opts + '</select>' +
     '<button class="mnav" id="mNext" aria-label="Siguiente">▶</button></div>' +
-    '<div style="text-align:center;color:#9fb3c8;font-size:10px;margin-bottom:8px">Municipio ' + (idx + 1) + ' de ' + M.length + (clusterOf[cur] ? ' · Clúster ' + CLUSTER_LABELS[clusterOf[cur]] : '') + '</div>' +
-    '<div id="mobCard">' + document.getElementById('card').innerHTML + '</div>' +
+    '<div style="text-align:center;color:#9fb3c8;font-size:10px;margin-bottom:8px">Municipio ' + (idx + 1) + ' de ' + M.length + (clusterOf[cur] ? ' · Clúster ' + CLUSTER_LABELS[clusterOf[cur]] : '') + ' · v6.5</div>' +
+    '<div id="mobCard">' + cardHTML + '</div>' +
     '<hr style="border-color:#1d3a52;margin:12px 0">' +
     '<div id="mobLeg">' + document.getElementById('leg').innerHTML + '</div>';
   addBackBtn(wrap);
@@ -1416,6 +1419,7 @@ function mobOpen(target) {
         const nm = tr.dataset.muni;
         const f = M.find(x => x.n === nm);
         if (!f) return;
+        selMun.value = nm; lastMuni = nm;
         isolate(nm);
         showFicha(f);
         mobClose();
